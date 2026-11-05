@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from quote_engine.adapters.db.models import (
     ConversationRow,
     CustomerRow,
+    InboxRow,
     MessageRow,
     QuoteConversationRow,
     QuoteEventRow,
@@ -215,6 +216,33 @@ class MessageRepo:
 class InboxRepo:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def insert(
+        self, dedupe_key: str, kind: str, customer_id: str, payload: dict[str, Any], h: str
+    ) -> int | None:
+        """Insert a pending row; None if dedupe_key already exists."""
+        return (
+            await self.session.execute(
+                insert(InboxRow)
+                .values(
+                    dedupe_key=dedupe_key,
+                    kind=kind,
+                    customer_id=customer_id,
+                    payload=payload,
+                    payload_hash=h,
+                )
+                .on_conflict_do_nothing(index_elements=["dedupe_key"])
+                .returning(InboxRow.seq)
+            )
+        ).scalar_one_or_none()
+
+    async def existing(self, dedupe_key: str) -> tuple[int, str]:
+        row = (
+            await self.session.execute(
+                select(InboxRow.seq, InboxRow.payload_hash).where(InboxRow.dedupe_key == dedupe_key)
+            )
+        ).one()
+        return row.seq, row.payload_hash
 
 
 class ReviewRepo:
