@@ -49,6 +49,12 @@ class QuoteRepo:
             for q in await self._load(list(rows))
         ]
 
+    async def get(self, id: str) -> Quote | None:
+        row = (
+            await self.session.execute(select(QuoteRow).where(QuoteRow.id == id))
+        ).scalar_one_or_none()
+        return None if row is None else (await self._load([row]))[0]
+
     async def list_by_customer(self, customer_id: str) -> list[Quote]:
         rows = (
             await self.session.execute(
@@ -60,18 +66,23 @@ class QuoteRepo:
     async def history(self, id: str) -> list[dict[str, Any]]:
         rows = (
             await self.session.execute(
-                select(QuoteEventRow).where(QuoteEventRow.quote_id == id).order_by(QuoteEventRow.id)
+                select(QuoteEventRow, MessageRow.text)
+                .outerjoin(MessageRow, MessageRow.message_id == QuoteEventRow.message_id)
+                .where(QuoteEventRow.quote_id == id)
+                .order_by(QuoteEventRow.id)
             )
-        ).scalars()
+        ).all()
         return [
             {
+                "id": e.id,
                 "type": e.type,
+                "message_text": text_,
                 "payload": e.payload,
                 "message_id": e.message_id,
                 "review_id": e.review_id,
                 "created_at": e.created_at,
             }
-            for e in rows
+            for e, text_ in rows
         ]
 
     async def save(self, quote: Quote) -> None:
@@ -311,6 +322,30 @@ class ReviewRepo:
                 .returning(ReviewItemRow.id)
             )
         ).scalar_one()
+
+    async def list(self, status: str, customer_id: str | None) -> list[dict[str, Any]]:
+        stmt = (
+            select(ReviewItemRow, InboxRow.payload)
+            .join(InboxRow, InboxRow.seq == ReviewItemRow.inbox_seq)
+            .where(ReviewItemRow.status == status)
+            .order_by(ReviewItemRow.id)
+        )
+        if customer_id:
+            stmt = stmt.where(ReviewItemRow.customer_id == customer_id)
+        return [
+            {
+                "id": r.id,
+                "reason": r.reason,
+                "message": {
+                    "id": p.get("message_id"),
+                    "text": p.get("text"),
+                    "conversation_id": p["conversation_id"],
+                },
+                "candidate_quote_ids": r.candidate_quote_ids,
+                "proposed": r.proposed,
+            }
+            for r, p in (await self.session.execute(stmt)).all()
+        ]
 
     async def get_for_update(self, review_id: int) -> tuple[ReviewItemRow, dict[str, Any]] | None:
         """Lock a review row; also return the payload of its source inbox message."""
