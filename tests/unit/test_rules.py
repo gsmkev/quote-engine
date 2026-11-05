@@ -212,6 +212,9 @@ async def test_ink_colour_is_not_a_bare_alias():
         ("cotizame 2 banners", FRONTLITS),
         ("cotizame 2 banner", FRONTLITS),
         ("cotizame 2 tintas", TINTAS),
+        ("cotizame 2 lonas blackout", CATALOG.with_attr("type", "blackout")),
+        ("cotizame 2 lona mesh", MESHES),
+        ("cotizame 2 lonas frontlit 3.20x100", {FBT}),
     ],
 )
 async def test_family_aliases(text, expected):
