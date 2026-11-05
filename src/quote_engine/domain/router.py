@@ -81,14 +81,30 @@ def merge_lines(lines: list[tuple[str, int]]) -> list[tuple[str, int]]:
     return list(merged.items())
 
 
-def _new_lines(items: list[ItemMention]) -> list[tuple[str, int]] | None:
-    if not items or any(len(it.sku_candidates) != 1 or it.qty is None for it in items):
-        return None
-    return merge_lines([(it.sku_candidates[0], it.qty) for it in items if it.qty is not None])
+def _new_sku(it: ItemMention, defaults: frozenset[str]) -> str | None:
+    """SKU for a brand-new line: the only candidate, else the only family default among many."""
+    cands = it.sku_candidates
+    if len(cands) == 1:
+        return cands[0]
+    picks = [k for k in cands if k in defaults]
+    return picks[0] if len(cands) > 1 and len(picks) == 1 else None
+
+
+def _new_lines(items: list[ItemMention], defaults: frozenset[str]) -> list[tuple[str, int]] | None:
+    lines: list[tuple[str, int]] = []
+    for it in items:
+        sku = _new_sku(it, defaults)
+        if sku is None or it.qty is None:
+            return None
+        lines.append((sku, it.qty))
+    return merge_lines(lines) or None
 
 
 def route(
-    interp: MessageInterpretation, conversation_id: str, open_quotes: list[QuoteView]
+    interp: MessageInterpretation,
+    conversation_id: str,
+    open_quotes: list[QuoteView],
+    defaults: frozenset[str] = frozenset(),
 ) -> Decision:
     link = LinkConversation(conversation_id)
     ids = [q.id for q in open_quotes]
@@ -99,22 +115,44 @@ def route(
     if intent is Intent.NONE:
         return NoOp()
 
+    if any(not it.in_catalog for it in interp.items):
+        if intent is Intent.QUERY:
+            # Questions about products we don't carry: drop them, never review.
+            known = [it for it in interp.items if it.in_catalog]
+            interp = interp.model_copy(update={"items": known})
+            if not known and _pick(interp, open_quotes) is None:
+                return NoOp()
+        elif intent is not Intent.CANCEL:
+            q = _pick(interp, open_quotes)
+            if intent is Intent.ADD_ITEMS and not interp.separate:
+                linked = [v for v in open_quotes if conversation_id in v.conversations]
+                q = linked[0] if len(linked) == 1 else None
+            return Review("unknown_product", [q.id] if q else ids, None)
+
     if intent is Intent.CREATE_QUOTE or (
         intent is Intent.ADD_ITEMS and (interp.separate or not open_quotes)
     ):
-        lines = _new_lines(interp.items)
+        lines = _new_lines(interp.items, defaults)
         return NewQuote(lines) if lines else unknown
 
     if intent is Intent.ADD_ITEMS:
         linked = [q for q in open_quotes if conversation_id in q.conversations]
         if len(linked) != 1:
             return ambiguous_quote
-        lines = _new_lines(interp.items)
-        if lines is None:
-            return unknown
         q = linked[0]
+        added: list[tuple[str, int]] = []
+        for it in interp.items:
+            hit = [k for k in it.sku_candidates if k in q.lines]
+            if len(hit) > 1:
+                return Review("ambiguous_line", [q.id], None)
+            sku = hit[0] if hit else _new_sku(it, defaults)
+            if sku is None or it.qty is None:
+                return unknown
+            added.append((sku, it.qty))
+        if not added:
+            return unknown
         ops: list[Op] = [link]
-        for sku, qty in lines:
+        for sku, qty in merge_lines(added):
             ops.append(SetQty(sku, q.lines[sku] + qty) if sku in q.lines else AddLine(sku, qty))
         return Apply(q.id, ops)
 

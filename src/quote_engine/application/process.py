@@ -131,7 +131,7 @@ async def _message(
         decision: Decision = Review("extraction_failed", [v.id for v in views], None)
         scores: dict[str, int] = {}
     else:
-        decision = route(interp, p.conversation_id, views)
+        decision = route(interp, p.conversation_id, views, catalog.defaults)
         scores = route_scores(interp, views)
     interp_json = interp.model_dump(mode="json") if interp else None
     status, decision = await _execute(

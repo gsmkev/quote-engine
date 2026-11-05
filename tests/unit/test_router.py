@@ -16,11 +16,18 @@ FBT = "ALFBTC-013-320100"
 MCL = "ALMCLC-0909-320100"
 MIC = "AVMICS-1A-137050"
 ACR = "ARACBL-03-122244"
+BKO = "ALBKOC-013-320100"
+FBT250 = "ALFBTC-013-250100"
 LONAS = [FBT, MCL]
+DEFAULTS = frozenset({FBT, FBT250})
 
 
 def mention(cands, qty=None, prev=None):
     return ItemMention(mention="x", sku_candidates=cands, qty=qty, previous_qty=prev)
+
+
+def unknown_item(qty=None):
+    return ItemMention(mention="lona neon", sku_candidates=[], in_catalog=False, qty=qty)
 
 
 def interp(intent, items=(), separate=False, ids=()):
@@ -251,3 +258,136 @@ def test_route(i, conv, quotes, expected):
 def test_route_scores():
     i = interp(U, [mention(LONAS, 15, 20)], ids=["Q-002"])
     assert route_scores(i, [Q1_FULL, qv("Q-002")]) == {"Q-001": 5, "Q-002": 10}
+
+
+DEFAULT_CASES = [
+    (
+        "new-quote-picks-default",
+        interp(Intent.CREATE_QUOTE, [mention([FBT, BKO], 2)]),
+        "411",
+        [],
+        NewQuote([(FBT, 2)]),
+    ),
+    (
+        "new-quote-two-defaults",
+        interp(Intent.CREATE_QUOTE, [mention([FBT, FBT250], 2)]),
+        "411",
+        [],
+        Review("unknown_product", [], None),
+    ),
+    (
+        "add-new-line-picks-default",
+        interp(Intent.ADD_ITEMS, [mention([FBT, BKO], 2)]),
+        "411",
+        [qv("Q-001", {ACR: 3}, ["411"])],
+        Apply("Q-001", [LinkConversation("411"), AddLine(FBT, 2)]),
+    ),
+    (
+        "add-intersects-one-line",
+        interp(Intent.ADD_ITEMS, [mention(LONAS, 5)]),
+        "411",
+        [qv("Q-001", {FBT: 20}, ["411"])],
+        Apply("Q-001", [LinkConversation("411"), SetQty(FBT, 25)]),
+    ),
+    (
+        "add-intersect-ignores-default",
+        interp(Intent.ADD_ITEMS, [mention([FBT, BKO], 5)]),
+        "411",
+        [qv("Q-001", {BKO: 1}, ["411"])],
+        Apply("Q-001", [LinkConversation("411"), SetQty(BKO, 6)]),
+    ),
+    (
+        "add-intersects-two-lines",
+        interp(Intent.ADD_ITEMS, [mention(LONAS, 5)]),
+        "411",
+        [qv("Q-001", {FBT: 20, MCL: 5}, ["411"])],
+        Review("ambiguous_line", ["Q-001"], None),
+    ),
+    (
+        "update-without-prev-ignores-default",
+        interp(U, [mention([FBT, BKO, MCL], 15)]),
+        "411",
+        [Q1_FULL],
+        Review("ambiguous_line", ["Q-001"], None),
+    ),
+    (
+        "event1-without-prev-still-review",
+        interp(U, [mention(LONAS, 15)]),
+        "411",
+        [Q1_FULL],
+        Review("ambiguous_line", ["Q-001"], None),
+    ),
+    (
+        "create-unknown",
+        interp(Intent.CREATE_QUOTE, [unknown_item(2)]),
+        "411",
+        [],
+        Review("unknown_product", [], None),
+    ),
+    (
+        "add-mixed-unknown",
+        interp(Intent.ADD_ITEMS, [mention([ACR], 2), unknown_item(3)]),
+        "411",
+        [Q1_FULL, qv("Q-002", {ACR: 3}, ["411"])],
+        Review("unknown_product", ["Q-001", "Q-002"], None),
+    ),
+    (
+        "add-mixed-unknown-linked",
+        interp(Intent.ADD_ITEMS, [mention([ACR], 2), unknown_item(3)]),
+        "411",
+        [Q1_FULL, qv("Q-002", {ACR: 3}, ["662"])],
+        Review("unknown_product", ["Q-001"], None),
+    ),
+    (
+        "update-unknown",
+        interp(U, [unknown_item(4)]),
+        "411",
+        [Q1_FULL, qv("Q-002", {ACR: 2})],
+        Review("unknown_product", ["Q-001", "Q-002"], None),
+    ),
+    (
+        "update-mixed-unknown-targeted",
+        interp(U, [mention([ACR], 4), unknown_item(4)]),
+        "411",
+        [Q1_FULL, qv("Q-002", {ACR: 2})],
+        Review("unknown_product", ["Q-002"], None),
+    ),
+    (
+        "remove-unknown",
+        interp(Intent.REMOVE_ITEM, [unknown_item()]),
+        "411",
+        [Q1_FULL],
+        Review("unknown_product", ["Q-001"], None),
+    ),
+    (
+        "query-mixed-unknown-links",
+        interp(Intent.QUERY, [mention(LONAS), unknown_item()]),
+        "662",
+        [Q1_FULL],
+        Apply("Q-001", [LinkConversation("662")]),
+    ),
+    (
+        "query-only-unknown-noop",
+        interp(Intent.QUERY, [unknown_item()]),
+        "662",
+        [Q1_FULL],
+        NoOp(),
+    ),
+    (
+        "query-only-unknown-explicit-id",
+        interp(Intent.QUERY, [unknown_item()], ids=["Q-001"]),
+        "662",
+        [Q1_FULL],
+        Apply("Q-001", [LinkConversation("662")]),
+    ),
+    ("none-unknown", interp(Intent.NONE, [unknown_item()]), "411", [Q1_FULL], NoOp()),
+]
+
+
+@pytest.mark.parametrize(
+    ("i", "conv", "quotes", "expected"),
+    [c[1:] for c in DEFAULT_CASES],
+    ids=[c[0] for c in DEFAULT_CASES],
+)
+def test_route_with_defaults(i, conv, quotes, expected):
+    assert route(i, conv, quotes, defaults=DEFAULTS) == expected

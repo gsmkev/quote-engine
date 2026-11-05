@@ -155,7 +155,8 @@ def render_md(mode: str, host: str, m: dict[str, float | int], rows: list[dict])
 
 async def run(mode: str) -> tuple[Dataset[Golden, Result, None], dict, list[dict]]:
     settings = Settings(extractor_mode=mode)
-    extractor = build_extractor(settings, Catalog.from_json(CATALOG))
+    catalog = Catalog.from_json(CATALOG)
+    extractor = build_extractor(settings, catalog)
 
     total = len(GOLDEN.read_text().splitlines())
     progress = HERE / f".progress-{mode}.log"
@@ -173,7 +174,9 @@ async def run(mode: str) -> tuple[Dataset[Golden, Result, None], dict, list[dict
         if interp is None:
             decision, intent, skus, source = "review", None, [], None
         else:
-            decision = decision_str(route(interp, g.conversation_id, quotes))
+            decision = decision_str(
+                route(interp, g.conversation_id, quotes, defaults=catalog.defaults)
+            )
             intent, source = interp.intent.value, interp.source
             skus = sorted({s for it in interp.items for s in it.sku_candidates})
         ms = (time.monotonic() - start) * 1000
