@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from pydantic import ValidationError
 
@@ -35,14 +37,14 @@ def _enums(node) -> list[list[str]]:
     return found
 
 
-def test_catalog_loads_four_skus(cat):
-    assert cat.skus == SKUS
+def test_catalog_contains_original_skus(cat):
+    assert set(SKUS) <= set(cat.skus)
 
 
 def test_llm_schema_has_sku_enum(cat):
     mi, ce = make_llm_models(cat)
-    assert list(SKUS) in _enums(mi.model_json_schema())
-    assert list(SKUS) in _enums(ce.model_json_schema())
+    assert list(cat.skus) in _enums(mi.model_json_schema())
+    assert list(cat.skus) in _enums(ce.model_json_schema())
 
 
 def test_llm_model_rejects_foreign_sku(cat):
@@ -65,3 +67,37 @@ def test_validate_skus_rejects_foreign(cat):
     )
     with pytest.raises(ValueError):
         validate_skus(interp, cat)
+
+
+def test_catalog_original_skus_keep_description(cat: Catalog) -> None:
+    assert cat.items["ALFBTC-013-320100"].description == "Lona Frontlit BTE 13 3.20x100"
+    assert cat.items["ALMCLC-0909-320100"].description == "Lona Mesh CLN 9x9 3.20x100"
+    assert cat.items["AVMICS-1A-137050"].description == "Vinil Adhesivo Microperforado 1.37x50"
+    assert cat.items["ARACBL-03-122244"].description == "Acrilico Blanco 3mm 1.22x2.44"
+
+
+def test_catalog_size_and_sku_shape(cat: Catalog) -> None:
+    assert 35 <= len(cat.items) <= 45
+    assert all(re.fullmatch(r"[A-Z]{6}-[0-9A-Z]{2,4}-\d{6}", s) for s in cat.skus)
+
+
+def test_catalog_attrs_unique_and_family_present(cat: Catalog) -> None:
+    keys = ("family", "type", "width_m", "length_m", "thickness_mm", "color")
+    tuples = [tuple(i.attrs.get(k) for k in keys) for i in cat.items.values()]
+    assert all("family" in i.attrs for i in cat.items.values())
+    assert len(set(tuples)) == len(tuples)
+
+
+def test_catalog_defaults_are_frontlit_lonas(cat: Catalog) -> None:
+    assert "ALFBTC-013-320100" in cat.defaults
+    assert cat.defaults == cat.with_attr("type", "frontlit")
+    assert cat.with_attr("type", "blackout") and not cat.defaults & cat.with_attr(
+        "type", "blackout"
+    )
+    assert not cat.defaults & cat.with_attr("type", "mesh")
+
+
+def test_lona_alias_on_every_lona_sku(cat: Catalog) -> None:
+    lonas = cat.with_attr("family", "lona")
+    assert len(lonas) >= 10
+    assert all("lona" in cat.items[s].aliases for s in lonas)

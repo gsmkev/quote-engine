@@ -8,6 +8,8 @@ class CatalogItem(BaseModel):
     sku: str
     description: str
     aliases: list[str]
+    attrs: dict[str, str | float] = {}
+    default: bool = False
 
 
 class Catalog(BaseModel):
@@ -23,3 +25,10 @@ class Catalog(BaseModel):
     @property
     def skus(self) -> tuple[str, ...]:
         return tuple(self.items)
+
+    @property
+    def defaults(self) -> frozenset[str]:
+        return frozenset(s for s, i in self.items.items() if i.default)
+
+    def with_attr(self, key: str, value: str | float) -> set[str]:
+        return {s for s, i in self.items.items() if i.attrs.get(key) == value}

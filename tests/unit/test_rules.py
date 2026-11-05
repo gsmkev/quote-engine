@@ -10,7 +10,13 @@ MCL = "ALMCLC-0909-320100"
 MIC = "AVMICS-1A-137050"
 ACR = "ARACBL-03-122244"
 
-extractor = RuleExtractor(Catalog.from_json("fixtures/catalog.json"))
+CATALOG = Catalog.from_json("fixtures/catalog.json")
+extractor = RuleExtractor(CATALOG)
+LONAS = CATALOG.with_attr("family", "lona")
+ACRILICOS = CATALOG.with_attr("family", "acrilico")
+VINILES = CATALOG.with_attr("family", "vinil")
+LONAS_320100 = CATALOG.with_attr("width_m", 3.2) & CATALOG.with_attr("length_m", 100.0) & LONAS
+MESHES = CATALOG.with_attr("type", "mesh")
 
 
 def ctx(text: str) -> MessageCtx:
@@ -22,7 +28,7 @@ CASES = [
         "Oye de las lonas mejor que sean 15, no 20",
         Intent.UPDATE_QTY,
         False,
-        [("lonas", {FBT, MCL}, 15, 20)],
+        [("lonas", LONAS, 15, 20)],
         [],
     ),
     (
@@ -30,7 +36,7 @@ CASES = [
         "me confirmas qué lleva la cotización de las lonas?",
         Intent.QUERY,
         False,
-        [("lonas", {FBT, MCL}, None, None)],
+        [("lonas", LONAS, None, None)],
         [],
     ),
     (
@@ -44,7 +50,7 @@ CASES = [
         "perfecto. y de los acrilicos que cotizó Alice, mejor que sean 4",
         Intent.UPDATE_QTY,
         False,
-        [("acrilicos", {ACR}, 4, None)],
+        [("acrilicos", ACRILICOS, 4, None)],
         [],
     ),
     ("mejor cancelalo", Intent.CANCEL, False, [], []),
@@ -52,14 +58,14 @@ CASES = [
         "cambia el Q-002, acrilicos 6",
         Intent.UPDATE_QTY,
         False,
-        [("acrilicos", {ACR}, 6, None)],
+        [("acrilicos", ACRILICOS, 6, None)],
         ["Q-002"],
     ),
     (
         "cotizame 3 lonas de 3.20x100 y 2 vinil",
         Intent.ADD_ITEMS,
         False,
-        [("lonas", {FBT, MCL}, 3, None), ("vinil", {MIC}, 2, None)],
+        [("lonas", LONAS_320100, 3, None), ("vinil", VINILES, 2, None)],
         [],
     ),
 ]
@@ -107,7 +113,7 @@ async def test_cotizacion_is_not_add():
 async def test_dim_filter_narrows_candidates():
     r = await extractor.interpret(ctx("cotizame 2 lonas 9x9"))
     assert r is not None
-    assert {s for i in r.items for s in i.sku_candidates} == {MCL}
+    assert {s for i in r.items for s in i.sku_candidates} == MESHES
 
 
 async def test_extract_conversation_is_none():
