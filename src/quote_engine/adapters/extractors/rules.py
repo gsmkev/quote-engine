@@ -1,6 +1,8 @@
+import math
 import re
 import unicodedata
 from dataclasses import dataclass
+from typing import Any
 
 from quote_engine.application.ports import ConversationCtx, MessageCtx
 from quote_engine.domain.catalog import Catalog
@@ -13,10 +15,29 @@ from quote_engine.domain.interpretation import (
 )
 
 _QUOTE_ID = re.compile(r"\bq-?(\d{3})\b")
+_UNITS = r"(?:milimetros?|mm|centimetros?|cm|metros?|m)\b"
 _DIM = re.compile(
-    r"\d+(?:\.\d+)?\s*x\s*\d+(?:\.\d+)?(?:\s*x\s*\d+(?:\.\d+)?)*(?:\s*(?:mm|cm|m)\b)?"
-    r"|\d+(?:\.\d+)?\s*(?:mm|cm|m)\b|\d+\.\d+"
+    rf"\d+(?:\.\d+)?\s*x\s*\d+(?:\.\d+)?(?:\s*x\s*\d+(?:\.\d+)?)*(?:\s*{_UNITS})?"
+    rf"|\d+(?:\.\d+)?\s*{_UNITS}|\d+\.\d+"
 )
+_DECIMAL = re.compile(r"\d+(?:\.\d+)?")
+_COLOURS = {
+    "blanco": r"blanc[oa]s?|white",
+    "negro": r"negr[oa]s?|black",
+    "transparente": r"transparentes?|cristal(?:es)?",
+    "amarillo": r"amarill[oa]s?|yellow",
+    "cyan": r"cyan|cian",
+    "magenta": r"magentas?",
+    "rojo": r"roj[oa]s?",
+    "azul": r"azul(?:es)?",
+    "verde": r"verdes?",
+    "gris": r"gris(?:es)?",
+    "naranja": r"naranjas?",
+    "morado": r"morad[oa]s?",
+    "dorado": r"dorad[oa]s?",
+    "plateado": r"platead[oa]s?",
+}
+_COLOUR = re.compile(r"\b(?:" + "|".join(f"(?P<{k}>{v})" for k, v in _COLOURS.items()) + r")\b")
 _NUM = re.compile(r"\d+")
 _QTY = re.compile(r"\b(?:sean|seria|serian|a)\s+(\d+)(?!\.?\d)(?:\s*,?\s*no\s+(\d+)(?!\.?\d))?")
 _UNIT = re.compile(r"\s+(?:rollos?|piezas?|unidades?)\b")
@@ -60,6 +81,52 @@ class _GiveUp(Exception):
     pass
 
 
+_MODELLED = {"size": "width_m", "thickness": "thickness_mm", "color": "color"}
+
+
+def _parse_dim(token: str) -> tuple[str, Any]:
+    """Classify a dimension token as ("size", (w, l|None)) or ("thickness", mm)."""
+    nums = tuple(float(n) for n in _DECIMAL.findall(token))
+    unit = re.search(r"[a-wyz]+$", token)
+    unit = unit.group() if unit else "m"
+    if unit.startswith(("mm", "mili")) and len(nums) == 1:
+        return "thickness", nums[0]
+    if unit in ("m", "metro", "metros") and len(nums) == 2:
+        return "size", nums
+    if unit in ("m", "metro", "metros") and len(nums) == 1 and "." in token:
+        return "size", (nums[0], None)
+    raise _GiveUp
+
+
+def _close(a: Any, b: float) -> bool:
+    return isinstance(a, float | int) and math.isclose(a, b, abs_tol=1e-6)
+
+
+def _satisfies(attrs: dict[str, str | float], kind: str, value: Any) -> bool:
+    if kind == "color":
+        return attrs.get("color") == value
+    if kind == "thickness":
+        return _close(attrs.get("thickness_mm"), value)
+    width, length = value
+    if length is None:
+        return _close(attrs.get("width_m"), width) or _close(attrs.get("length_m"), width)
+    weave = str(attrs.get("weave", ""))
+    return (
+        _close(attrs.get("width_m"), width) and _close(attrs.get("length_m"), length)
+    ) or weave == f"{width:g}x{length:g}"
+
+
+def _owner(hits: list[_Hit], start: int, end: int) -> _Hit:
+    """The hit an attribute belongs to: nearest one before it, else nearest one after it."""
+    before = [h for h in hits if h.end <= start and start - h.end <= _DIM_REACH]
+    if before:
+        return max(before, key=lambda h: h.end)
+    after = [h for h in hits if h.start >= end and h.start - end <= _DIM_REACH]
+    if after:
+        return min(after, key=lambda h: h.start)
+    raise _GiveUp
+
+
 class RuleExtractor:
     """Deterministic first stage: returns None whenever it is not sure."""
 
@@ -72,7 +139,6 @@ class RuleExtractor:
         self._aliases = table
         longest_first = sorted(table, key=len, reverse=True)
         self._alias_re = re.compile(r"\b(?:" + "|".join(map(re.escape, longest_first)) + r")\b")
-        self._desc = {sku: norm(i.description).replace(" ", "") for sku, i in catalog.items.items()}
 
     async def interpret(self, ctx: MessageCtx) -> MessageInterpretation | None:
         try:
@@ -102,8 +168,7 @@ class RuleExtractor:
             _Hit(m.start(), m.end(), m.group(), list(self._aliases[m.group()]))
             for m in self._alias_re.finditer(t)
         ]
-        for h in hits:
-            self._filter_dims(h, dims)
+        self._filter_attrs(t, hits, dims)
         nums = {m.start(): m for m in _NUM.finditer(_blank(t, [m.span() for m in dims]))}
         unbound = self._bind(t, hits, nums)
         if unbound:
@@ -120,7 +185,13 @@ class RuleExtractor:
         if intent in (Intent.UPDATE_QTY, Intent.ADD_ITEMS) and any(h.qty is None for h in hits):
             raise _GiveUp
         items = [
-            ItemMention(mention=h.mention, sku_candidates=h.skus, qty=h.qty, previous_qty=h.prev)
+            ItemMention(
+                mention=h.mention,
+                sku_candidates=h.skus,
+                in_catalog=bool(h.skus),
+                qty=h.qty,
+                previous_qty=h.prev,
+            )
             for h in hits
         ]
         return MessageInterpretation(
@@ -139,14 +210,28 @@ class RuleExtractor:
                 return intent
         return None
 
-    def _filter_dims(self, hit: _Hit, dims: list[re.Match[str]]) -> None:
-        for d in dims:
-            if hit.distance(d.start()) > _DIM_REACH and hit.distance(d.end()) > _DIM_REACH:
-                continue
-            token = d.group().replace(" ", "")
-            kept = [s for s in hit.skus if token in self._desc[s]]
-            if kept:
-                hit.skus = kept
+    def _filter_attrs(self, t: str, hits: list[_Hit], dims: list[re.Match[str]]) -> None:
+        """Narrow each hit by the explicit attributes next to it; empty means not in catalog."""
+        free = _blank(t, [(h.start, h.end) for h in hits])
+        tokens = [(d.start(), d.end(), *_parse_dim(d.group())) for d in dims] + [
+            (m.start(), m.end(), "color", m.lastgroup) for m in _COLOUR.finditer(free)
+        ]
+        wanted: dict[int, dict[str, Any]] = {}
+        for start, end, kind, value in tokens:
+            per_hit = wanted.setdefault(_owner(hits, start, end).start, {})
+            if kind in per_hit:
+                raise _GiveUp
+            per_hit[kind] = value
+        for h in hits:
+            want = wanted.get(h.start, {})
+            attrs = [self._catalog.items[s].attrs for s in h.skus]
+            if any(not any(_MODELLED[k] in a for a in attrs) for k in want):
+                raise _GiveUp  # the family has no such attribute: not ours to decide
+            h.skus = [
+                s
+                for s, a in zip(h.skus, attrs, strict=True)
+                if all(_satisfies(a, k, v) for k, v in want.items())
+            ]
 
     @staticmethod
     def _bind(t: str, hits: list[_Hit], nums: dict[int, re.Match[str]]) -> list[int]:

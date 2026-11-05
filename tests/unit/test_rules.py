@@ -127,3 +127,116 @@ async def test_cotizas_question_is_add():
     assert r is not None
     assert r.intent == Intent.ADD_ITEMS
     assert r.items[0].qty == 3
+
+
+FRONTLITS = CATALOG.with_attr("type", "frontlit")
+PVC = CATALOG.with_attr("family", "pvc")
+TINTAS = CATALOG.with_attr("family", "tinta")
+PVC_5 = "APPVEB-05-122244"
+ACR_NEGRO_3 = "ARACNG-03-122244"
+TINTA_CYAN = "ATECYN-1L-001000"
+
+
+async def item_of(text: str):
+    r = await extractor.interpret(ctx(text))
+    assert r is not None
+    assert len(r.items) == 1
+    return r, r.items[0]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "cotizame 3 lonas de 5x100",
+        "cotizame 2 sintra 20mm",
+        "cotizame 2 acrilicos rojos 3mm",
+        "cotizame 2 viniles de 11.37",
+        "cotizame 2 vinil negro",
+        "cotizame 1 tinta roja",
+        "cotizame 2 acrilicos 3 milimetros verdes",
+    ],
+)
+async def test_explicit_attribute_without_match_is_not_in_catalog(text):
+    r, item = await item_of(text)
+    assert r.intent == Intent.ADD_ITEMS
+    assert item.in_catalog is False
+    assert item.sku_candidates == []
+    assert item.qty is not None
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("cotizame 2 sintra 5mm", {PVC_5}),
+        ("cotizame 2 sintra 5 mm", {PVC_5}),
+        ("cotizame 2 sintra 5 milimetros", {PVC_5}),
+        ("cotizame 2 acrilicos negros 3mm", {ACR_NEGRO_3}),
+        ("cotizame 2 acrilicos negro 3mm", {ACR_NEGRO_3}),
+        ("cotizame 2 acrilicos 3mm blancos", {ACR}),
+        ("cotizame 1 tinta cyan", {TINTA_CYAN}),
+        ("cotizame 1 tintas cian", {TINTA_CYAN}),
+        ("cotizame 2 vinil de 1.37", VINILES & CATALOG.with_attr("width_m", 1.37)),
+        ("cotizame 2 viniles 1,37x50", VINILES & CATALOG.with_attr("width_m", 1.37)),
+        ("cotizame 2 viniles transparentes", CATALOG.with_attr("color", "transparente") & VINILES),
+        ("cotizame 2 acrilicos 1.22x2.44", ACRILICOS),
+    ],
+)
+async def test_attribute_filter_is_exact(text, expected):
+    _, item = await item_of(text)
+    assert item.in_catalog is True
+    assert set(item.sku_candidates) == expected
+
+
+@pytest.mark.parametrize("text", ["20 rollos lona 3.20 x 100", "20 rollos lona 3,20x100 m."])
+async def test_width_length_filter(text):
+    _, item = await item_of("cotizame " + text)
+    assert FBT in item.sku_candidates
+    for s in item.sku_candidates:
+        attrs = CATALOG.items[s].attrs
+        assert attrs["width_m"] == pytest.approx(3.2)
+        assert attrs["length_m"] == pytest.approx(100)
+
+
+async def test_ink_colour_is_not_a_bare_alias():
+    _, item = await item_of("cotizame 2 acrilicos negros 3mm")
+    assert item.mention == "acrilicos negros"
+    r = await extractor.interpret(ctx("cotizame 2 negros"))
+    assert r is None
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("cotizame 2 viniles", VINILES),
+        ("cotizame 3 sintras", PVC),
+        ("cotizame 2 banners", FRONTLITS),
+        ("cotizame 2 banner", FRONTLITS),
+        ("cotizame 2 tintas", TINTAS),
+    ],
+)
+async def test_family_aliases(text, expected):
+    _, item = await item_of(text)
+    assert set(item.sku_candidates) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "cotizame 2 lonas 3mm",  # lonas have no thickness: not ours to decide
+        "cotizame 2 lonas blancas",  # lonas have no colour attribute
+        "cotizame 2 viniles de 1.37 y 1.52",  # two sizes for one mention
+        "cotizame 2 acrilicos 3mm 5mm",
+        "cotizame 2 lonas 3.20x100 cm",
+        "cotizame 2 lonas, las que me mandaste la otra vez de 3.20x100",  # too far
+    ],
+)
+async def test_attribute_gives_up(text):
+    assert await extractor.interpret(ctx(text)) is None
+
+
+async def test_mixed_message_decides_per_item():
+    r = await extractor.interpret(ctx("cotizame 3 lonas de 3.20x100 y 2 vinil rojo"))
+    assert r is not None
+    lona, vinil = r.items
+    assert lona.in_catalog and set(lona.sku_candidates) == LONAS_320100
+    assert not vinil.in_catalog and vinil.qty == 2
