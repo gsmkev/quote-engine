@@ -21,9 +21,12 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from quote_engine.adapters.db.repos import InboxRepo
 from quote_engine.adapters.db.uow import UnitOfWork, make_engine
 from quote_engine.adapters.extractors.replay import ReplayExtractor
+from quote_engine.application import process
 from quote_engine.application.ingest import Duplicate
 from quote_engine.application.process import process_next
-from quote_engine.domain.quote import DomainError
+from quote_engine.domain.interpretation import ConversationExtraction, ExtractedLine
+from quote_engine.domain.quote import DomainError, LinkConversation, RemoveLine
+from quote_engine.domain.router import Apply
 
 pytestmark = pytest.mark.integration
 
@@ -268,11 +271,51 @@ async def test_failed_after_max_attempts(session_factory, catalog):
     assert not await process_next(session_factory, boom, catalog)
 
 
-async def test_domain_error_fails_immediately(session_factory, catalog):
+class Extracts:
+    """Phase 1 extractor stub returning fixed lines (and no Phase 2 interpretation)."""
+
+    def __init__(self, *lines: tuple[str, int]):
+        self.lines = lines
+
+    async def interpret(self, ctx):
+        return None
+
+    async def extract_conversation(self, ctx):
+        return ConversationExtraction(
+            items=[ExtractedLine(sku=s, qty=q, evidence="x") for s, q in self.lines]
+        )
+
+
+async def test_phase1_duplicate_skus_merged(session_factory, catalog):
+    await ingest(session_factory, fx("phase1"))
+    await run_all(session_factory, Extracts((FBT, 20), (MIC, 5), (FBT, 3)), catalog)
+    [row] = await inbox_rows(session_factory)
+    assert row.status == "processed"
+    [q] = await state(session_factory, C)
+    assert q["line_items"] == [{"sku": FBT, "qty": 23}, {"sku": MIC, "qty": 5}]
+
+
+async def test_domain_error_on_execute_goes_to_review(run, session_factory, monkeypatch):
+    await run("phase1")
+    bad = Apply("Q-001", [LinkConversation(T411), RemoveLine(ACR)])
+    monkeypatch.setattr(process, "route", lambda *a: bad)
+    await run("event1")
+    e1 = (await inbox_rows(session_factory))[-1]
+    assert (e1.status, e1.attempts, e1.error) == ("needs_review", 0, None)
+    assert e1.decision["decision"]["type"] == "Review"
+    assert e1.decision["decision"]["reason"] == "invalid_ops"
+    [review] = await open_reviews(session_factory)
+    assert (review.reason, review.candidate_quote_ids) == ("invalid_ops", ["Q-001"])
+    assert review.proposed["type"] == "Apply"
+    assert review.interpretation["intent"] == "update_qty"
+    assert await state(session_factory, C) == PHASE1
+
+
+async def test_domain_error_outside_execute_is_retried(session_factory, catalog):
     await ingest(session_factory, fx("event1"))
     assert await process_next(session_factory, Raises(DomainError("bad op")), catalog)
     [row] = await inbox_rows(session_factory)
-    assert (row.status, row.attempts) == ("failed", 1)
+    assert (row.status, row.attempts) == ("pending", 1)
 
 
 async def test_customer_ordering_two_workers(session_factory, extractor, catalog):

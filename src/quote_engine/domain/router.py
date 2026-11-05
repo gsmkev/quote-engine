@@ -27,7 +27,9 @@ class NewQuote:
 
 @dataclass(frozen=True)
 class Review:
-    reason: Literal["ambiguous_quote", "ambiguous_line", "unknown_product", "extraction_failed"]
+    reason: Literal[
+        "ambiguous_quote", "ambiguous_line", "unknown_product", "extraction_failed", "invalid_ops"
+    ]
     candidates: list[str]
     proposed: Apply | None
 
@@ -71,10 +73,18 @@ def _pick(interp: MessageInterpretation, open_quotes: list[QuoteView]) -> QuoteV
     return scored[0][1]
 
 
+def merge_lines(lines: list[tuple[str, int]]) -> list[tuple[str, int]]:
+    """Sum quantities of repeated SKUs, keeping first-mention order."""
+    merged: dict[str, int] = {}
+    for sku, qty in lines:
+        merged[sku] = merged.get(sku, 0) + qty
+    return list(merged.items())
+
+
 def _new_lines(items: list[ItemMention]) -> list[tuple[str, int]] | None:
     if not items or any(len(it.sku_candidates) != 1 or it.qty is None for it in items):
         return None
-    return [(it.sku_candidates[0], it.qty) for it in items if it.qty is not None]
+    return merge_lines([(it.sku_candidates[0], it.qty) for it in items if it.qty is not None])
 
 
 def route(
@@ -120,16 +130,20 @@ def route(
         return ambiguous_quote
     ops = [link]
     if intent in (Intent.UPDATE_QTY, Intent.REMOVE_ITEM):
+        targets: dict[str, int | None] = {}
         for it in interp.items:
             sku = _resolve_line(it, q)
             if sku is None:
                 return Review("ambiguous_line", [q.id], None)
-            if intent is Intent.UPDATE_QTY:
-                if it.qty is None:
-                    return Review("unknown_product", [q.id], None)
-                ops.append(SetQty(sku, it.qty))
-            else:
-                ops.append(RemoveLine(sku))
+            qty = it.qty if intent is Intent.UPDATE_QTY else None
+            if intent is Intent.UPDATE_QTY and qty is None:
+                return Review("unknown_product", [q.id], None)
+            if sku in targets and targets[sku] != qty:
+                # The same line was given two different quantities: no safe pick.
+                return Review("ambiguous_line", [q.id], None)
+            targets[sku] = qty
+        for sku, qty in targets.items():
+            ops.append(RemoveLine(sku) if qty is None else SetQty(sku, qty))
     if intent is Intent.CANCEL:
         ops.append(Cancel())
     return Apply(q.id, ops)

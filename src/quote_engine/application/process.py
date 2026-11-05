@@ -21,6 +21,7 @@ from quote_engine.domain.router import (
     NewQuote,
     NoOp,
     Review,
+    merge_lines,
     route,
     route_scores,
 )
@@ -88,11 +89,10 @@ async def process_next(
                         status, trace = await _message(uow, row, extractor, catalog, context_window)
                     await uow.inbox.finish(seq, status, trace)
             except Exception as e:
-                fatal = isinstance(e, DomainError)
                 status = await uow.inbox.record_failure(
-                    seq, f"{type(e).__name__}: {e}", fatal, max_attempts
+                    seq, f"{type(e).__name__}: {e}", max_attempts
                 )
-                log.exception("attempt_failed", fatal=fatal, status=status)
+                log.exception("attempt_failed", status=status)
             await uow.commit()
             return True
         finally:
@@ -134,7 +134,9 @@ async def _message(
         decision = route(interp, p.conversation_id, views)
         scores = route_scores(interp, views)
     interp_json = interp.model_dump(mode="json") if interp else None
-    status = await _execute(uow, row, decision, p.conversation_id, p.message_id, interp_json)
+    status, decision = await _execute(
+        uow, row, decision, p.conversation_id, p.message_id, interp_json
+    )
     trace = {
         "extractor_source": source,
         "interpretation": interp_json,
@@ -184,11 +186,13 @@ async def _conversation(
             extraction = None
         log.info("interpreted", latency_ms=latency_ms)
         if extraction and extraction.items:
-            decision = NewQuote([(i.sku, i.qty) for i in extraction.items])
+            decision = NewQuote(merge_lines([(i.sku, i.qty) for i in extraction.items]))
         else:
             decision = Review("extraction_failed", [v.id for v in views], None)
     extraction_json = extraction.model_dump(mode="json") if extraction else None
-    status = await _execute(uow, row, decision, p.conversation_id, message_id, extraction_json)
+    status, decision = await _execute(
+        uow, row, decision, p.conversation_id, message_id, extraction_json
+    )
     trace = {
         "extractor_source": None,
         "interpretation": extraction_json,
@@ -207,34 +211,48 @@ async def _execute(
     conversation_id: str,
     message_id: str | None,
     interpretation: dict[str, Any] | None,
-) -> str:
-    """Carry out a routing decision; return the inbox status."""
+) -> tuple[str, Decision]:
+    """Carry out a routing decision; return the inbox status and the decision taken.
+
+    A decision the quote aggregate rejects becomes an `invalid_ops` review: every
+    non-success outcome lands in review_items, never in a silent `failed`.
+    """
     cause = Cause(message_id)
-    match decision:
-        case NewQuote(lines):
-            quote = Quote.create(
-                await uow.quotes.next_id(), row["customer_id"], lines, conversation_id, cause
-            )
-        case Apply(quote_id, ops):
-            loaded = await uow.quotes.get_for_update(quote_id)
-            if loaded is None:
-                raise DomainError(f"quote {quote_id} not found")
-            quote = loaded
-            quote.apply(ops, cause)
-        case Review(reason, candidates, proposed):
-            review_id = await uow.reviews.add(
-                row["seq"],
-                row["customer_id"],
-                reason,
-                candidates,
-                interpretation,
-                dump_decision(proposed) if proposed else None,
-            )
-            log.info("review_created", review_id=review_id, reason=reason)
-            return "needs_review"
-        case NoOp():
-            return "processed"
+    quote: Quote | None = None
+    try:
+        match decision:
+            case NewQuote(lines):
+                quote = Quote.create(
+                    await uow.quotes.next_id(), row["customer_id"], lines, conversation_id, cause
+                )
+            case Apply(quote_id, ops):
+                quote = await uow.quotes.get_for_update(quote_id)
+                if quote is None:
+                    raise DomainError(f"quote {quote_id} not found")
+                quote.apply(ops, cause)
+    except DomainError as e:
+        log.warning("invalid_ops", error=str(e), decision=dump_decision(decision))
+        proposed = decision if isinstance(decision, Apply) else None
+        decision = Review("invalid_ops", [proposed.quote_id] if proposed else [], proposed)
+        quote = None
+    if quote is not None:
+        events = [e.type for e in quote.pending_events]
+        await uow.quotes.save(quote)
+        log.info("applied", quote_id=quote.id, events=events)
+        return "processed", decision
+    if isinstance(decision, Review):
+        review_id = await uow.reviews.add(
+            row["seq"],
+            row["customer_id"],
+            decision.reason,
+            decision.candidates,
+            interpretation,
+            dump_decision(decision.proposed) if decision.proposed else None,
+        )
+        log.info("review_created", review_id=review_id, reason=decision.reason)
+        return "needs_review", decision
+    return "processed", decision
     events = [e.type for e in quote.pending_events]
     await uow.quotes.save(quote)
     log.info("applied", quote_id=quote.id, events=events)
-    return "processed"
+    return "processed", decision

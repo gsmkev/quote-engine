@@ -280,10 +280,10 @@ class InboxRepo:
             .values(status=status, decision=decision, processed_at=func.clock_timestamp())
         )
 
-    async def record_failure(self, seq: int, error: str, fatal: bool, max_attempts: int) -> str:
-        """Count a failed attempt; give up when fatal or out of attempts. Returns the new status."""
+    async def record_failure(self, seq: int, error: str, max_attempts: int) -> str:
+        """Count a failed attempt; give up when out of attempts. Returns the new status."""
         attempts = InboxRow.attempts + 1
-        status = "failed" if fatal else case((attempts >= max_attempts, "failed"), else_="pending")
+        status = case((attempts >= max_attempts, "failed"), else_="pending")
         return (
             await self.session.execute(
                 update(InboxRow)

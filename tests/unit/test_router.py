@@ -189,6 +189,55 @@ CASES = [
         [],
         Review("unknown_product", [], None),
     ),
+    (
+        "20-create-duplicate-sku-merged",
+        interp(Intent.CREATE_QUOTE, [mention([ACR], 2), mention([MIC], 1), mention([ACR], 3)]),
+        "411",
+        [],
+        NewQuote([(ACR, 5), (MIC, 1)]),
+    ),
+    (
+        "21-add-duplicate-existing-sku-merged",
+        interp(Intent.ADD_ITEMS, [mention([ACR], 2), mention([ACR], 1)]),
+        "411",
+        [qv("Q-001", {ACR: 3}, ["411"])],
+        Apply("Q-001", [LinkConversation("411"), SetQty(ACR, 6)]),
+    ),
+    (
+        "22-add-duplicate-new-sku-merged",
+        interp(Intent.ADD_ITEMS, [mention([MIC], 2), mention([MIC], 2)]),
+        "411",
+        [qv("Q-001", {ACR: 3}, ["411"])],
+        Apply("Q-001", [LinkConversation("411"), AddLine(MIC, 4)]),
+    ),
+    (
+        "23-update-conflicting-duplicates",
+        interp(U, [mention([ACR], 4), mention([ACR], 6)]),
+        "411",
+        [qv("Q-001", {ACR: 2})],
+        Review("ambiguous_line", ["Q-001"], None),
+    ),
+    (
+        "24-update-same-duplicates",
+        interp(U, [mention([ACR], 4), mention([ACR], 4)]),
+        "411",
+        [qv("Q-001", {ACR: 2})],
+        Apply("Q-001", [LinkConversation("411"), SetQty(ACR, 4)]),
+    ),
+    (
+        "25-remove-duplicates",
+        interp(Intent.REMOVE_ITEM, [mention([MIC]), mention([MIC])]),
+        "411",
+        [Q1_FULL],
+        Apply("Q-001", [LinkConversation("411"), RemoveLine(MIC)]),
+    ),
+    (
+        "26-remove-duplicates-with-qty",
+        interp(Intent.REMOVE_ITEM, [mention([MIC], 5), mention([MIC], 2)]),
+        "411",
+        [Q1_FULL],
+        Apply("Q-001", [LinkConversation("411"), RemoveLine(MIC)]),
+    ),
 ]
 
 
