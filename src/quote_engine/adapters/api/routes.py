@@ -148,9 +148,14 @@ async def health(request: Request):
         out["db"] = "down"
     try:
         async with httpx.AsyncClient(timeout=2) as c:
-            r = await c.get(f"{settings.llm_base_url}/models")
+            r = await c.get(f"{settings.llm_base_url.rstrip('/')}/models")
             r.raise_for_status()
-        out["model_present"] = any(m.get("id") == settings.llm_model for m in r.json()["data"])
+        # Docker Model Runner lists HF models as "huggingface.co/<lowercased ref>".
+        want = settings.llm_model.removeprefix("hf.co/").removeprefix("huggingface.co/").lower()
+        out["model_present"] = any(
+            m.get("id", "").removeprefix("huggingface.co/").lower() == want
+            for m in r.json()["data"]
+        )
     except Exception:
         out["llm"] = "down"
         out["model_present"] = False

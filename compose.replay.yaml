@@ -1,0 +1,9 @@
+# No model: serve recorded LLM outputs from fixtures/llm_replay.
+services:
+  api:
+    models: !reset {}
+    environment: {EXTRACTOR_MODE: replay}
+  worker:
+    models: !reset {}
+    environment: {EXTRACTOR_MODE: replay}
+models: !reset {}

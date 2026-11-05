@@ -1,0 +1,49 @@
+name: quote-engine
+
+x-app: &app
+  build: .
+  environment:
+    DATABASE_URL: postgresql+asyncpg://quote:quote@postgres:5432/quote
+    EXTRACTOR_MODE: ${EXTRACTOR_MODE:-cascade}
+  depends_on:
+    postgres: {condition: service_healthy}
+
+services:
+  postgres:
+    image: postgres:17
+    environment: {POSTGRES_USER: quote, POSTGRES_PASSWORD: quote, POSTGRES_DB: quote}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quote -d quote"]
+      interval: 2s
+      retries: 30
+
+  api:
+    <<: *app
+    command: >
+      sh -c "alembic upgrade head && python -m quote_engine.seed &&
+      exec uvicorn --factory quote_engine.adapters.api.app:create_app_from_env --host 0.0.0.0 --port 8000"
+    ports: ["${API_PORT:-8000}:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
+      interval: 2s
+      retries: 60
+    models:
+      llm: {endpoint_var: LLM_BASE_URL, model_var: LLM_MODEL}
+
+  worker:
+    <<: *app
+    depends_on:
+      postgres: {condition: service_healthy}
+      api: {condition: service_healthy}  # api runs the migrations
+    stop_grace_period: 30s
+    models:
+      llm: {endpoint_var: LLM_BASE_URL, model_var: LLM_MODEL}
+
+models:
+  llm:
+    model: hf.co/unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M
+    context_size: 8192  # the model's default 262144 OOMs
+
+volumes:
+  pgdata:
