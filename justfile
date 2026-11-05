@@ -14,3 +14,6 @@ test:
 
 test-llm:
     uv run pytest -m llm
+
+record-replay:
+    uv run python scripts/record_replay.py

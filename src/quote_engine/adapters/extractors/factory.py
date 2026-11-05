@@ -18,9 +18,7 @@ def build_extractor(settings: Settings, catalog: Catalog) -> Extractor:
     if mode == "replay":
         return CascadeExtractor(rules, ReplayExtractor(REPLAY_DIR, catalog))
     if mode in ("cascade", "llm"):
-        from quote_engine.adapters.extractors.llm import (  # ty: ignore[import-not-found]
-            LLMExtractor,
-        )
+        from quote_engine.adapters.extractors.llm import LLMExtractor
 
         llm = LLMExtractor(settings, catalog)
         return llm if mode == "llm" else CascadeExtractor(rules, llm)
