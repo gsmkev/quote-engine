@@ -2,7 +2,7 @@ from enum import StrEnum
 from types import GenericAlias
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, PositiveInt, create_model
+from pydantic import BaseModel, PositiveInt, create_model, model_validator
 
 from quote_engine.domain.catalog import Catalog
 
@@ -19,9 +19,16 @@ class Intent(StrEnum):
 
 class ItemMention(BaseModel):
     mention: str
-    sku_candidates: list[str] = Field(min_length=1)
+    sku_candidates: list[str]
+    in_catalog: bool = True
     qty: PositiveInt | None = None
     previous_qty: PositiveInt | None = None
+
+    @model_validator(mode="after")
+    def _candidates_match_in_catalog(self) -> "ItemMention":
+        if self.in_catalog != bool(self.sku_candidates):
+            raise ValueError("sku_candidates must be non-empty iff in_catalog")
+        return self
 
 
 class MessageInterpretation(BaseModel):
@@ -33,9 +40,16 @@ class MessageInterpretation(BaseModel):
 
 
 class ExtractedLine(BaseModel):
-    sku: str
+    sku: str | None
     qty: PositiveInt
     evidence: str
+    in_catalog: bool = True
+
+    @model_validator(mode="after")
+    def _sku_matches_in_catalog(self) -> "ExtractedLine":
+        if self.in_catalog != (self.sku is not None):
+            raise ValueError("sku must be set iff in_catalog")
+        return self
 
 
 class ConversationExtraction(BaseModel):
@@ -48,9 +62,10 @@ def make_llm_models(
     """LLM-facing variants whose SKU fields are a Literal over the catalog (JSON-schema enum)."""
     literal: Any = Literal  # subscripted with runtime values: opaque to type checkers
     sku: Any = literal[catalog.skus]
-    cand: Any = (GenericAlias(list, (sku,)), Field(min_length=1))
+    opt_sku: Any = sku | None
+    cand: Any = (GenericAlias(list, (sku,)), ...)
     mention = create_model("LLMItemMention", __base__=ItemMention, sku_candidates=cand)
-    line = create_model("LLMExtractedLine", __base__=ExtractedLine, sku=(sku, ...))
+    line = create_model("LLMExtractedLine", __base__=ExtractedLine, sku=(opt_sku, ...))
     items: Any = (GenericAlias(list, (mention,)), [])
     lines: Any = (GenericAlias(list, (line,)), ...)
     interp = create_model("LLMMessageInterpretation", __base__=MessageInterpretation, items=items)

@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from quote_engine.domain.catalog import Catalog
 from quote_engine.domain.interpretation import (
+    ExtractedLine,
     ItemMention,
     MessageInterpretation,
     make_llm_models,
@@ -101,3 +102,44 @@ def test_lona_alias_on_every_lona_sku(cat: Catalog) -> None:
     lonas = cat.with_attr("family", "lona")
     assert len(lonas) >= 10
     assert all("lona" in cat.items[s].aliases for s in lonas)
+
+
+def test_not_in_catalog_mention_needs_no_candidates():
+    m = ItemMention(mention="lona blackout", sku_candidates=[], in_catalog=False)
+    assert m.sku_candidates == [] and not m.in_catalog
+
+
+def test_in_catalog_mention_requires_candidates():
+    with pytest.raises(ValidationError):
+        ItemMention(mention="x", sku_candidates=[])
+
+
+def test_not_in_catalog_mention_rejects_candidates():
+    with pytest.raises(ValidationError):
+        ItemMention(mention="x", sku_candidates=[SKUS[0]], in_catalog=False)
+
+
+def test_extracted_line_not_in_catalog_has_no_sku():
+    line = ExtractedLine(sku=None, qty=3, evidence="e", in_catalog=False)
+    assert line.sku is None
+    with pytest.raises(ValidationError):
+        ExtractedLine(sku=None, qty=3, evidence="e")
+    with pytest.raises(ValidationError):
+        ExtractedLine(sku=SKUS[0], qty=3, evidence="e", in_catalog=False)
+
+
+def test_llm_models_allow_not_in_catalog_but_not_foreign(cat):
+    mi, ce = make_llm_models(cat)
+    ok = mi.model_validate(
+        {
+            "intent": "add_items",
+            "items": [{"mention": "x", "sku_candidates": [], "in_catalog": False, "qty": 1}],
+            "source": "llm",
+        }
+    )
+    assert ok.items[0].sku_candidates == []
+    assert ce.model_validate(
+        {"items": [{"sku": None, "qty": 2, "evidence": "e", "in_catalog": False}]}
+    )
+    with pytest.raises(ValidationError):
+        ce.model_validate({"items": [{"sku": "FAKE-1", "qty": 2, "evidence": "e"}]})
