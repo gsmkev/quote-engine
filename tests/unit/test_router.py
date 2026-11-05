@@ -381,6 +381,27 @@ DEFAULT_CASES = [
         Apply("Q-001", [LinkConversation("662")]),
     ),
     ("none-unknown", interp(Intent.NONE, [unknown_item()]), "411", [Q1_FULL], NoOp()),
+    (
+        "cancel-explicit-id-unknown",
+        interp(Intent.CANCEL, [unknown_item()], ids=["Q-001"]),
+        "411",
+        [Q1_FULL, qv("Q-002", {ACR: 2})],
+        Review("unknown_product", ["Q-001"], None),
+    ),
+    (
+        "cancel-mixed-unknown",
+        interp(Intent.CANCEL, [mention([ACR]), unknown_item()]),
+        "411",
+        [Q1_FULL, qv("Q-002", {ACR: 2})],
+        Review("unknown_product", ["Q-002"], None),
+    ),
+    (
+        "cancel-known-unchanged",
+        interp(Intent.CANCEL, [mention([ACR])]),
+        "411",
+        [Q1_FULL, qv("Q-002", {ACR: 2})],
+        Apply("Q-002", [LinkConversation("411"), Cancel()]),
+    ),
 ]
 
 

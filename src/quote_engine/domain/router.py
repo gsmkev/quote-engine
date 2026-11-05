@@ -87,7 +87,7 @@ def _new_sku(it: ItemMention, defaults: frozenset[str]) -> str | None:
     if len(cands) == 1:
         return cands[0]
     picks = [k for k in cands if k in defaults]
-    return picks[0] if len(cands) > 1 and len(picks) == 1 else None
+    return picks[0] if len(picks) == 1 else None
 
 
 def _new_lines(items: list[ItemMention], defaults: frozenset[str]) -> list[tuple[str, int]] | None:
@@ -122,7 +122,7 @@ def route(
             interp = interp.model_copy(update={"items": known})
             if not known and _pick(interp, open_quotes) is None:
                 return NoOp()
-        elif intent is not Intent.CANCEL:
+        else:
             q = _pick(interp, open_quotes)
             if intent is Intent.ADD_ITEMS and not interp.separate:
                 linked = [v for v in open_quotes if conversation_id in v.conversations]

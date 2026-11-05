@@ -298,7 +298,7 @@ async def test_phase1_duplicate_skus_merged(session_factory, catalog):
 async def test_domain_error_on_execute_goes_to_review(run, session_factory, monkeypatch):
     await run("phase1")
     bad = Apply("Q-001", [LinkConversation(T411), RemoveLine(ACR)])
-    monkeypatch.setattr(process, "route", lambda *a: bad)
+    monkeypatch.setattr(process, "route", lambda *a, **k: bad)
     await run("event1")
     e1 = (await inbox_rows(session_factory))[-1]
     assert (e1.status, e1.attempts, e1.error) == ("needs_review", 0, None)
