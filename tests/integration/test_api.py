@@ -138,3 +138,11 @@ async def test_health(client):
     assert r.status_code == 200
     body = r.json()
     assert body["db"] == "ok" and body["model"] and "model_present" in body
+
+
+async def test_inline_worker_catalog_has_defaults(pg_url, catalog):
+    settings = Settings(database_url=pg_url, extractor_mode="replay", poll_interval_s=0.05)
+    app = create_app(settings, extractor=replay_extractor(catalog), run_inline_worker=True)
+    async with app.router.lifespan_context(app):
+        assert app.state.catalog == catalog
+        assert app.state.catalog.defaults

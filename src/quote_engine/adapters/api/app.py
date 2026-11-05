@@ -1,20 +1,19 @@
 import asyncio
 import contextlib
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
 import structlog
 from fastapi import FastAPI
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from quote_engine.adapters.api.routes import router
-from quote_engine.adapters.db.models import CatalogRow
 from quote_engine.adapters.db.uow import make_engine
 from quote_engine.adapters.extractors.factory import build_extractor
 from quote_engine.application.ports import Extractor
 from quote_engine.application.process import process_next
 from quote_engine.config import Settings
-from quote_engine.domain.catalog import Catalog, CatalogItem
+from quote_engine.domain.catalog import Catalog
 
 log = structlog.get_logger()
 
@@ -46,14 +45,9 @@ def create_app(
         app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
         task = None
         if run_inline_worker:
-            async with app.state.session_factory() as s:
-                rows = (await s.execute(select(CatalogRow))).scalars()
-                catalog = Catalog(
-                    items={
-                        r.sku: CatalogItem(sku=r.sku, description=r.description, aliases=r.aliases)
-                        for r in rows
-                    }
-                )
+            # Same source as the worker: the DB table is only the FK guard, seeded from this file.
+            catalog = Catalog.from_json(Path("fixtures/catalog.json"))
+            app.state.catalog = catalog
             task = asyncio.create_task(
                 _worker(app, extractor or build_extractor(settings, catalog), catalog)
             )
