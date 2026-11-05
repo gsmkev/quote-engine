@@ -64,3 +64,15 @@ async def session_factory(pg_url):
 @pytest.fixture
 def uow_factory(session_factory):
     return lambda: UnitOfWork(session_factory)
+
+
+@pytest.fixture
+async def seeded_after_cancel(session_factory, catalog):
+    """phase1 + E1..E4 + the ambiguous cancel processed; returns the open review id."""
+    from helpers import fx, ingest, open_reviews, replay_extractor, run_all  # ty: ignore[import-not-found]
+
+    for name in ("phase1", "event1", "event2", "event3", "event4", "cancel"):
+        await ingest(session_factory, fx(name))
+    await run_all(session_factory, replay_extractor(catalog), catalog)
+    [review] = await open_reviews(session_factory)
+    return review.id

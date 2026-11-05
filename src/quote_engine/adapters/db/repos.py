@@ -311,3 +311,26 @@ class ReviewRepo:
                 .returning(ReviewItemRow.id)
             )
         ).scalar_one()
+
+    async def get_for_update(self, review_id: int) -> tuple[ReviewItemRow, dict[str, Any]] | None:
+        """Lock a review row; also return the payload of its source inbox message."""
+        row = (
+            await self.session.execute(
+                select(ReviewItemRow).where(ReviewItemRow.id == review_id).with_for_update()
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            return None
+        payload = (
+            await self.session.execute(
+                select(InboxRow.payload).where(InboxRow.seq == row.inbox_seq)
+            )
+        ).scalar_one()
+        return row, payload
+
+    async def close(self, review_id: int, status: str, resolution: dict[str, Any]) -> None:
+        await self.session.execute(
+            update(ReviewItemRow)
+            .where(ReviewItemRow.id == review_id)
+            .values(status=status, resolution=resolution, resolved_at=func.now())
+        )
