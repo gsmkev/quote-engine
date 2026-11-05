@@ -46,6 +46,7 @@ addopts = '-m "not llm"'
 
 [tool.ruff]
 line-length = 100
+extend-exclude = ["docs"]  # pseudo-code fences in the design docs
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
