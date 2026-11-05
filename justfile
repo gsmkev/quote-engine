@@ -41,3 +41,7 @@ test-llm:
 
 record-replay:
     uv run python scripts/record_replay.py
+
+# Golden-set evals: mode = cascade | llm | rules (llm/cascade need the model runner).
+eval mode="cascade":
+    uv run python -m evals.run_evals --mode {{mode}}
