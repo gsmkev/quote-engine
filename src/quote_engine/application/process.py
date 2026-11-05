@@ -63,37 +63,40 @@ async def process_next(
     max_attempts: int = 3,
     context_window: int = 10,
 ) -> bool:
-    """Handle the next claimable inbox row. Returns False when there is nothing to do."""
-    seq = None
-    try:
-        async with UnitOfWork(session_factory) as uow:
-            row = await uow.inbox.claim()
-            if row is None:
-                return False
-            seq, customer_id = row["seq"], row["customer_id"]
-            structlog.contextvars.bind_contextvars(inbox_seq=seq, customer_id=customer_id)
+    """Handle the next claimable inbox row. Returns False when there is nothing to do.
+
+    Work runs in a savepoint inside the claiming transaction: on error only the work is rolled
+    back, and the failure is recorded while the row lock is still held, so no other worker can
+    claim the row in between.
+    """
+    async with UnitOfWork(session_factory) as uow:
+        row = await uow.inbox.claim()
+        if row is None:
+            return False
+        seq, customer_id = row["seq"], row["customer_id"]
+        structlog.contextvars.bind_contextvars(inbox_seq=seq, customer_id=customer_id)
+        try:
             await uow.session.execute(
                 text("SELECT pg_advisory_xact_lock(hashtext(:c))"), {"c": customer_id}
             )
             log.info("claimed", kind=row["kind"])
-            if row["kind"] == "conversation":
-                status, trace = await _conversation(uow, row, extractor, catalog)
-            else:
-                status, trace = await _message(uow, row, extractor, catalog, context_window)
-            await uow.inbox.finish(seq, status, trace)
+            try:
+                async with uow.session.begin_nested():
+                    if row["kind"] == "conversation":
+                        status, trace = await _conversation(uow, row, extractor, catalog)
+                    else:
+                        status, trace = await _message(uow, row, extractor, catalog, context_window)
+                    await uow.inbox.finish(seq, status, trace)
+            except Exception as e:
+                fatal = isinstance(e, DomainError)
+                status = await uow.inbox.record_failure(
+                    seq, f"{type(e).__name__}: {e}", fatal, max_attempts
+                )
+                log.exception("attempt_failed", fatal=fatal, status=status)
             await uow.commit()
             return True
-    except Exception as e:
-        if seq is None:
-            raise
-        fatal = isinstance(e, DomainError)
-        log.exception("failed", fatal=fatal)
-        async with UnitOfWork(session_factory) as uow:
-            await uow.inbox.record_failure(seq, f"{type(e).__name__}: {e}", fatal, max_attempts)
-            await uow.commit()
-        return True
-    finally:
-        structlog.contextvars.clear_contextvars()
+        finally:
+            structlog.contextvars.clear_contextvars()
 
 
 async def _message(

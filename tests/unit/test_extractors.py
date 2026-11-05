@@ -71,8 +71,12 @@ async def test_replay_rejects_foreign_sku(tmp_path):
     key = ReplayExtractor.conversation_key(CONV.messages)
     bad = {"items": [{"sku": "FAKE-SKU", "qty": 1, "evidence": "x"}]}
     r.record(key, ConversationExtraction.model_validate(bad))
-    with pytest.raises(ValueError, match="FAKE-SKU"):
-        await r.extract_conversation(CONV)
+    assert await r.extract_conversation(CONV) is None
+    r.record(
+        ReplayExtractor.message_key("x"), MessageInterpretation(intent=Intent.NONE, source="llm")
+    )
+    r._path(ReplayExtractor.message_key("x")).write_text('{"intent": "bogus"}')
+    assert await r.interpret(msg("x")) is None
 
 
 async def test_replay_key_is_sha256_of_key_input(tmp_path):

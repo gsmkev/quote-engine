@@ -18,6 +18,7 @@ from helpers import (
 )
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from quote_engine.adapters.db.repos import InboxRepo
 from quote_engine.adapters.db.uow import UnitOfWork, make_engine
 from quote_engine.adapters.extractors.replay import ReplayExtractor
 from quote_engine.application.ingest import Duplicate
@@ -295,3 +296,35 @@ async def test_customer_ordering_two_workers(session_factory, extractor, catalog
     assert await state(session_factory, C) == FINAL
     rows = await inbox_rows(session_factory)
     assert [r.processed_at for r in rows] == sorted(r.processed_at for r in rows)
+
+
+async def test_failure_bookkeeping_keeps_row_locked(
+    session_factory, extractor, catalog, monkeypatch
+):
+    """While a failed attempt is being recorded, no other worker may claim and apply the row."""
+    await ingest(session_factory, fx("phase1"))
+    await run_all(session_factory, extractor, catalog)
+    await ingest(session_factory, fx("event1"))
+
+    original = InboxRepo.record_failure
+    competitor: list[bool] = []
+
+    async def racing_record_failure(self, *args, **kwargs):
+        # A second worker runs exactly in the bookkeeping window.
+        competitor.append(await process_next(session_factory, extractor, catalog))
+        return await original(self, *args, **kwargs)
+
+    monkeypatch.setattr(InboxRepo, "record_failure", racing_record_failure)
+    assert await process_next(session_factory, Raises(RuntimeError("flaky")), catalog)
+
+    assert competitor == [False]
+    e1 = (await inbox_rows(session_factory))[-1]
+    assert (e1.status, e1.attempts) == ("pending", 1)
+
+    monkeypatch.undo()
+    assert await run_all(session_factory, extractor, catalog) == 1
+    e1 = (await inbox_rows(session_factory))[-1]
+    assert (e1.status, e1.attempts) == ("processed", 1)
+    async with UnitOfWork(session_factory) as uow:
+        assert [e["type"] for e in await uow.quotes.history("Q-001")][-1] == "LineQtyChanged"
+        assert sum(e["type"] == "LineQtyChanged" for e in await uow.quotes.history("Q-001")) == 1

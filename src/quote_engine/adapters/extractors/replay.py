@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 import structlog
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from quote_engine.application.ports import ConversationCtx, MessageCtx
 from quote_engine.domain.catalog import Catalog
@@ -47,10 +47,19 @@ class ReplayExtractor:
         path.write_text(obj.model_dump_json(indent=2) + "\n")
         return path
 
+    def _validate[T: BaseModel](self, model: type[T], data: dict | None) -> T | None:
+        if data is None:
+            return None
+        try:
+            return model.model_validate(data)
+        except ValidationError as e:
+            # An invalid recording (e.g. a foreign SKU) is a miss: route to review, don't retry.
+            log.warning("replay_invalid", error=str(e))
+            return None
+
     async def interpret(self, ctx: MessageCtx) -> MessageInterpretation | None:
         data = self._load(self.message_key(ctx.text))
-        return None if data is None else self._interp.model_validate({**data, "source": "replay"})
+        return self._validate(self._interp, data and {**data, "source": "replay"})
 
     async def extract_conversation(self, ctx: ConversationCtx) -> ConversationExtraction | None:
-        data = self._load(self.conversation_key(ctx.messages))
-        return None if data is None else self._extraction.model_validate(data)
+        return self._validate(self._extraction, self._load(self.conversation_key(ctx.messages)))
