@@ -29,7 +29,9 @@ for e in event1 event2 event3 event4; do
 done
 
 step "3. Resend event4 (same message_id, same payload) -> duplicate"
-post "/v1/messages?wait=true" $FX/event4.json
+curl -fsS -X POST "$API/v1/messages?wait=true" -H 'content-type: application/json' \
+  --data @$FX/event4.json | jq -ce '.status == "duplicate"' \
+  || { echo "FAIL: resent event4 was not reported as duplicate" >&2; exit 1; }
 
 step "4. Ambiguous message '$(jq -r .text $FX/cancel.json)' -> human review"
 post "/v1/messages?wait=true" $FX/cancel.json
