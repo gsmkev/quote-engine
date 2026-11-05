@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from quote_engine.adapters.db.uow import UnitOfWork
+from quote_engine.application.process import synthetic_message_id
 from quote_engine.domain import quote as q
 from quote_engine.domain.quote import Cause, DomainError, Quote
 
@@ -72,6 +73,19 @@ def _to_domain(op: Any, default_conv: str) -> q.Op:
     raise DomainError(f"unknown op {op!r}")
 
 
+def _source_message_id(payload: dict[str, Any]) -> str | None:
+    """The message a review stems from; Phase 1 conversations use their last message's id."""
+    if "message_id" in payload:
+        return payload["message_id"]
+    history = payload.get("conversation_history") or []
+    if not history:
+        return None
+    last = history[-1]
+    return synthetic_message_id(
+        payload["conversation_id"], last["timestamp"], last["direction"], last["text"]
+    )
+
+
 async def resolve_review(
     uow: UnitOfWork, review_id: int, body: ResolveIn
 ) -> tuple[dict[str, Any], Quote | None]:
@@ -86,7 +100,7 @@ async def resolve_review(
         )
         quote: Quote | None = None
         if body.action == "apply":
-            cause = Cause(payload["message_id"], review_id)
+            cause = Cause(_source_message_id(payload), review_id)
             conv = payload["conversation_id"]
             ops = [_to_domain(o, conv) for o in body.ops]
             if body.new_quote:

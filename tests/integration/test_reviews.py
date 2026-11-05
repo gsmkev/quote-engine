@@ -1,7 +1,8 @@
 import pytest
-from helpers import ACR, state
+from helpers import ACR, fx, ingest, open_reviews, run_all, state
 from sqlalchemy import text
 
+from quote_engine.application.process import synthetic_message_id
 from quote_engine.application.reviews import (
     ResolveIn,
     ReviewNotOpen,
@@ -12,6 +13,7 @@ from quote_engine.domain.quote import DomainError
 
 pytestmark = pytest.mark.integration
 C = "C-10029"
+T411 = "wa-thread-411"
 
 
 def body(**kw) -> ResolveIn:
@@ -115,3 +117,41 @@ async def test_new_quote(seeded_after_cancel, session_factory, uow_factory):
     assert quote is not None
     assert quote.id == "Q-003" and quote.line_items() == [(ACR, 2)]
     assert quote.conversations == {"wa-thread-411"}
+
+
+class NoExtraction:
+    async def interpret(self, ctx):
+        return None
+
+    async def extract_conversation(self, ctx):
+        return None
+
+
+async def test_resolve_conversation_review_new_quote(session_factory, uow_factory, catalog):
+    await ingest(session_factory, fx("phase1"))
+    await run_all(session_factory, NoExtraction(), catalog)
+    [review] = await open_reviews(session_factory)
+    assert review.reason == "extraction_failed"
+    async with uow_factory() as uow:
+        _, quote = await resolve_review(
+            uow,
+            review.id,
+            ResolveIn(
+                action="apply", new_quote=True, ops=[{"op": "add_line", "sku": ACR, "qty": 2}]
+            ),
+        )
+    assert quote is not None
+    assert quote.line_items() == [(ACR, 2)] and quote.conversations == {T411}
+    last = fx("phase1")["conversation_history"][-1]
+    mid = synthetic_message_id(T411, last["timestamp"], last["direction"], last["text"])
+    async with uow_factory() as uow:
+        history = await uow.quotes.history(quote.id)
+        linked_by = (
+            await uow.session.execute(
+                text("SELECT linked_by_message_id FROM quote_conversations WHERE quote_id=:q"),
+                {"q": quote.id},
+            )
+        ).scalar_one()
+    assert {(e["message_id"], e["review_id"]) for e in history} == {(mid, review.id)}
+    assert history[0]["message_text"] == last["text"]
+    assert linked_by == mid
