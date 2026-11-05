@@ -252,7 +252,3 @@ async def _execute(
         log.info("review_created", review_id=review_id, reason=decision.reason)
         return "needs_review", decision
     return "processed", decision
-    events = [e.type for e in quote.pending_events]
-    await uow.quotes.save(quote)
-    log.info("applied", quote_id=quote.id, events=events)
-    return "processed", decision
