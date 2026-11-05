@@ -46,7 +46,8 @@ def make_llm_models(
     catalog: Catalog,
 ) -> tuple[type[MessageInterpretation], type[ConversationExtraction]]:
     """LLM-facing variants whose SKU fields are a Literal over the catalog (JSON-schema enum)."""
-    sku: Any = Literal.__getitem__(catalog.skus)
+    literal: Any = Literal  # subscripted with runtime values: opaque to type checkers
+    sku: Any = literal[catalog.skus]
     cand: Any = (GenericAlias(list, (sku,)), Field(min_length=1))
     mention = create_model("LLMItemMention", __base__=ItemMention, sku_candidates=cand)
     line = create_model("LLMExtractedLine", __base__=ExtractedLine, sku=(sku, ...))

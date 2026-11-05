@@ -33,6 +33,8 @@ class LinkConversation:
     conversation_id: str
 
 
+QuoteStatus = Literal["draft", "cancelled"]
+
 Op = Cancel | SetQty | AddLine | RemoveLine | LinkConversation
 
 
@@ -59,7 +61,7 @@ class Line:
 class Quote:
     id: str
     customer_id: str
-    status: Literal["draft", "cancelled"] = "draft"
+    status: QuoteStatus = "draft"
     version: int = 1
     lines: dict[str, Line] = field(default_factory=dict)
     conversations: set[str] = field(default_factory=set)

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import RowMapping, case, delete, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
@@ -16,7 +16,7 @@ from quote_engine.adapters.db.models import (
     QuoteRow,
     ReviewItemRow,
 )
-from quote_engine.domain.quote import Line, Quote
+from quote_engine.domain.quote import Line, Quote, QuoteStatus
 from quote_engine.domain.router import QuoteView
 
 
@@ -167,8 +167,7 @@ class QuoteRepo:
             )
         ).scalars()
         quotes = {
-            r.id: Quote(r.id, r.customer_id, r.status, r.version)  # ty: ignore[invalid-argument-type]
-            for r in rows
+            r.id: Quote(r.id, r.customer_id, cast(QuoteStatus, r.status), r.version) for r in rows
         }
         for ln in lines:
             quotes[ln.quote_id].lines[ln.sku] = Line(ln.qty, ln.position)
