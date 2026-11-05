@@ -40,7 +40,7 @@ def pg_url(catalog):
 
 
 @pytest.fixture
-async def uow_factory(pg_url):
+async def session_factory(pg_url):
     engine = make_engine(pg_url)
     async with engine.begin() as conn:
         tables = (
@@ -57,6 +57,10 @@ async def uow_factory(pg_url):
         )
         await conn.execute(text(f"TRUNCATE {','.join(tables)} RESTART IDENTITY CASCADE"))
         await conn.execute(text("ALTER SEQUENCE quote_seq RESTART WITH 1"))
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    yield lambda: UnitOfWork(factory)
+    yield async_sessionmaker(engine, expire_on_commit=False)
     await engine.dispose()
+
+
+@pytest.fixture
+def uow_factory(session_factory):
+    return lambda: UnitOfWork(session_factory)

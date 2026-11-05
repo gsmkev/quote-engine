@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import RowMapping, case, delete, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,7 @@ from quote_engine.adapters.db.models import (
     QuoteEventRow,
     QuoteLineRow,
     QuoteRow,
+    ReviewItemRow,
 )
 from quote_engine.domain.quote import Line, Quote
 from quote_engine.domain.router import QuoteView
@@ -244,7 +245,66 @@ class InboxRepo:
         ).one()
         return row.seq, row.payload_hash
 
+    async def claim(self) -> RowMapping | None:
+        """Lock the oldest pending row whose customer has no earlier pending row."""
+        return (
+            (
+                await self.session.execute(
+                    text(
+                        "SELECT seq, kind, customer_id, payload FROM inbox i"
+                        " WHERE i.status = 'pending' AND NOT EXISTS ("
+                        "   SELECT 1 FROM inbox e WHERE e.customer_id = i.customer_id"
+                        "   AND e.status = 'pending' AND e.seq < i.seq)"
+                        " ORDER BY i.seq FOR UPDATE SKIP LOCKED LIMIT 1"
+                    )
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+
+    async def finish(self, seq: int, status: str, decision: dict[str, Any]) -> None:
+        await self.session.execute(
+            update(InboxRow)
+            .where(InboxRow.seq == seq)
+            .values(status=status, decision=decision, processed_at=func.clock_timestamp())
+        )
+
+    async def record_failure(self, seq: int, error: str, fatal: bool, max_attempts: int) -> None:
+        """Count a failed attempt; give up when fatal or out of attempts."""
+        attempts = InboxRow.attempts + 1
+        status = "failed" if fatal else case((attempts >= max_attempts, "failed"), else_="pending")
+        await self.session.execute(
+            update(InboxRow)
+            .where(InboxRow.seq == seq)
+            .values(attempts=attempts, error=error, status=status)
+        )
+
 
 class ReviewRepo:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def add(
+        self,
+        inbox_seq: int,
+        customer_id: str,
+        reason: str,
+        candidate_quote_ids: list[str],
+        interpretation: dict[str, Any] | None,
+        proposed: dict[str, Any] | None,
+    ) -> int:
+        return (
+            await self.session.execute(
+                insert(ReviewItemRow)
+                .values(
+                    inbox_seq=inbox_seq,
+                    customer_id=customer_id,
+                    reason=reason,
+                    candidate_quote_ids=candidate_quote_ids,
+                    interpretation=interpretation,
+                    proposed=proposed,
+                )
+                .returning(ReviewItemRow.id)
+            )
+        ).scalar_one()

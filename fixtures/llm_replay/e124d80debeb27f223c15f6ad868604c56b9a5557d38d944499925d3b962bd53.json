@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "sku": "ALFBTC-013-320100",
+      "qty": 20,
+      "evidence": "20 rollos lona 3.20 x 100 m."
+    },
+    {
+      "sku": "ALMCLC-0909-320100",
+      "qty": 5,
+      "evidence": "5 rollos de mesh de 3.20 x 100 m."
+    },
+    {
+      "sku": "AVMICS-1A-137050",
+      "qty": 5,
+      "evidence": "De momento sería de 1.37x50 / Necesitamos 5 rollos"
+    }
+  ]
+}
