@@ -21,9 +21,11 @@ _NUM = re.compile(r"\d+")
 _QTY = re.compile(r"\b(?:sean|seria|serian|a)\s+(\d+)(?!\.?\d)(?:\s*,?\s*no\s+(\d+)(?!\.?\d))?")
 _UNIT = re.compile(r"\s+(?:rollos?|piezas?|unidades?)\b")
 _CANCEL = re.compile(r"\bcancela\w*|\banula\w*|\bya no (?:lo )?quiero\b")
-_UPDATE = re.compile(r"\bmejor (?:que )?sean\b|\bcambia\w*|\ben vez de\b|\bno \d+")
-_ADD = re.compile(r"\bcotiza(?:me|r|nos)?\b|\bagrega\w*|\bsuma\b|\btambien\b|\bnecesito\b")
+_UPDATE = re.compile(r"\bmejor (?:que )?sean\b|\bcambia\w*|\ben vez de\b")
+_ADD = re.compile(r"\bcotiza(?:me|s|r|nos)?\b|\bagrega\w*|\bsuma\b|\btambien\b|\bnecesito\b")
 _QUERY = re.compile(r"\bque lleva\b|\bconfirmas\b|\bcuanto\b|\?$")
+_NO_N = re.compile(r"\bno\s+(\d+)")
+_NEGATED = re.compile(r"\bno (?:me |lo |la )?(?:cancel|anul)\w*")
 _SEPARATE = re.compile(r"\baparte\b|\botra cotizacion\b|\bpor separado\b")
 _DIM_REACH = 25
 
@@ -88,9 +90,14 @@ class RuleExtractor:
         intent = self._intent(t)
         if intent is None:
             return None
+        if _NEGATED.search(t):
+            raise _GiveUp
+        prev_pos = {m.start(2) for m in _QTY.finditer(t) if m.group(2)}
+        if any(m.start(1) not in prev_pos for m in _NO_N.finditer(t)):
+            raise _GiveUp
         ids = [f"Q-{m.group(1)}" for m in _QUOTE_ID.finditer(t)]
         t = _blank(t, [m.span() for m in _QUOTE_ID.finditer(t)])
-        dims = [m for m in _DIM.finditer(t)]
+        dims = list(_DIM.finditer(t))
         hits = [
             _Hit(m.start(), m.end(), m.group(), list(self._aliases[m.group()]))
             for m in self._alias_re.finditer(t)
@@ -107,6 +114,8 @@ class RuleExtractor:
                 raise _GiveUp
             return MessageInterpretation(intent=intent, explicit_quote_ids=ids, source="rules")
         if not hits:
+            raise _GiveUp
+        if intent == Intent.QUERY and any(h.qty is not None for h in hits):
             raise _GiveUp
         if intent in (Intent.UPDATE_QTY, Intent.ADD_ITEMS) and any(h.qty is None for h in hits):
             raise _GiveUp
@@ -143,6 +152,8 @@ class RuleExtractor:
     def _bind(t: str, hits: list[_Hit], nums: dict[int, re.Match[str]]) -> list[int]:
         """Bind numbers to hits; return the starts of numbers left unbound."""
         bound: set[int] = set()
+
+        after_hit = re.compile(r"\s+(\d+)")
 
         def nearest(pos: int) -> _Hit:
             if not hits:
@@ -181,7 +192,7 @@ class RuleExtractor:
                 if t[n.end() : h.start].strip() == "" and h.start > n.end():
                     set_qty(h, pos)
         for h in hits:
-            m = re.compile(r"\s+(\d+)").match(t, h.end)
+            m = after_hit.match(t, h.end)
             if m and m.start(1) in nums:
                 set_qty(h, m.start(1))
         return [p for p in nums if p not in bound]

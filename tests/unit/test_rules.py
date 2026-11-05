@@ -87,6 +87,11 @@ async def test_extracts(text, intent, separate, items, ids):
         "cotizame 2 lonas y 5",
         "cancela las lonas",
         "cotizame 2 lonas y 3 acrilicos 4",
+        "cotizame 3 lonas no 5 vinil",
+        "mejor que sean 12 lonas no 2 acrilicos",
+        "cuanto cuestan 3 lonas",
+        "no cancelen la cotizacion",
+        "no cancela la cotizacion de las lonas",
     ],
 )
 async def test_gives_up(text):
@@ -109,3 +114,10 @@ async def test_extract_conversation_is_none():
     from quote_engine.application.ports import ConversationCtx
 
     assert await extractor.extract_conversation(ConversationCtx("c1", "cust", [])) is None
+
+
+async def test_cotizas_question_is_add():
+    r = await extractor.interpret(ctx("me cotizas 3 lonas?"))
+    assert r is not None
+    assert r.intent == Intent.ADD_ITEMS
+    assert r.items[0].qty == 3
