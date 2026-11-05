@@ -1,7 +1,7 @@
 [project]
 name = "quote-engine"
 version = "0.1.0"
-description = "Add your description here"
+description = "Headless API that turns WhatsApp chats into draft quotes and keeps them correct as messages arrive"
 authors = [
     { name = "gsmkev", email = "gsmkev@gmail.com" }
 ]

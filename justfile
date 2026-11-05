@@ -32,6 +32,7 @@ fmt:
 
 typecheck:
     uv run ty check src
+    uv run pyright src
 
 test:
     uv run pytest
