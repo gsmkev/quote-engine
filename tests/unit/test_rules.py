@@ -173,6 +173,7 @@ async def test_explicit_attribute_without_match_is_not_in_catalog(text):
         ("cotizame 2 acrilicos negros 3mm", {ACR_NEGRO_3}),
         ("cotizame 2 acrilicos negro 3mm", {ACR_NEGRO_3}),
         ("cotizame 2 acrilicos 3mm blancos", {ACR}),
+        ("cotizame 2 acrilicos de 3mm blancos", {ACR}),
         ("cotizame 1 tinta cyan", {TINTA_CYAN}),
         ("cotizame 1 tintas cian", {TINTA_CYAN}),
         ("cotizame 2 vinil de 1.37", VINILES & CATALOG.with_attr("width_m", 1.37)),
@@ -231,6 +232,13 @@ async def test_family_aliases(text, expected):
         "cotizame 2 acrilicos 3mm 5mm",
         "cotizame 2 lonas 3.20x100 cm",
         "cotizame 2 lonas, las que me mandaste la otra vez de 3.20x100",  # too far
+        "cotizame 2 sintra pero no de 5mm",  # negated attributes
+        "cotizame 2 sintra, no de 5mm",
+        "cotizame 2 acrilicos que no sean negros",
+        "cotizame 2 acrilicos 3mm que no sean negros",
+        "cotizame 2 acrilicos sin negro",
+        "cotizame 2 lonas 320x100",  # unitless integer width: likely cm
+        "cotizame 2 viniles para la tienda roja",  # colour not attached to the product
     ],
 )
 async def test_attribute_gives_up(text):

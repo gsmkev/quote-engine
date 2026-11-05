@@ -38,6 +38,7 @@ _COLOURS = {
     "plateado": r"platead[oa]s?",
 }
 _COLOUR = re.compile(r"\b(?:" + "|".join(f"(?P<{k}>{v})" for k, v in _COLOURS.items()) + r")\b")
+_NEGATOR = re.compile(r"\b(?:no|sin|excepto|menos|salvo)\b")
 _NUM = re.compile(r"\d+")
 _QTY = re.compile(r"\b(?:sean|seria|serian|a)\s+(\d+)(?!\.?\d)(?:\s*,?\s*no\s+(\d+)(?!\.?\d))?")
 _UNIT = re.compile(r"\s+(?:rollos?|piezas?|unidades?)\b")
@@ -87,11 +88,13 @@ _MODELLED = {"size": "width_m", "thickness": "thickness_mm", "color": "color"}
 def _parse_dim(token: str) -> tuple[str, Any]:
     """Classify a dimension token as ("size", (w, l|None)) or ("thickness", mm)."""
     nums = tuple(float(n) for n in _DECIMAL.findall(token))
-    unit = re.search(r"[a-wyz]+$", token)
-    unit = unit.group() if unit else "m"
+    unit_match = re.search(r"[a-wyz]+$", token)
+    unit = unit_match.group() if unit_match else "m"
     if unit.startswith(("mm", "mili")) and len(nums) == 1:
         return "thickness", nums[0]
     if unit in ("m", "metro", "metros") and len(nums) == 2:
+        if not unit_match and "." not in token.split("x")[0] and nums[0] >= 10:
+            raise _GiveUp  # "320x100" is probably cm
         return "size", nums
     if unit in ("m", "metro", "metros") and len(nums) == 1 and "." in token:
         return "size", (nums[0], None)
@@ -216,9 +219,18 @@ class RuleExtractor:
         tokens = [(d.start(), d.end(), *_parse_dim(d.group())) for d in dims] + [
             (m.start(), m.end(), "color", m.lastgroup) for m in _COLOUR.finditer(free)
         ]
+        if tokens and any(m.start() not in self._prev_qty(t) for m in _NEGATOR.finditer(t)):
+            raise _GiveUp  # "no de 5mm", "que no sean negros": never apply a negated attribute
+        attr_free = _blank(free, [(s, e) for s, e, _, _ in tokens])
         wanted: dict[int, dict[str, Any]] = {}
         for start, end, kind, value in tokens:
-            per_hit = wanted.setdefault(_owner(hits, start, end).start, {})
+            owner = _owner(hits, start, end)
+            gap = (
+                attr_free[owner.end : start] if owner.end <= start else attr_free[end : owner.start]
+            )
+            if kind == "color" and gap.strip() not in ("", "de"):
+                raise _GiveUp  # a colour not attached to the product may describe something else
+            per_hit = wanted.setdefault(owner.start, {})
             if kind in per_hit:
                 raise _GiveUp
             per_hit[kind] = value
@@ -232,6 +244,11 @@ class RuleExtractor:
                 for s, a in zip(h.skus, attrs, strict=True)
                 if all(_satisfies(a, k, v) for k, v in want.items())
             ]
+
+    @staticmethod
+    def _prev_qty(t: str) -> set[int]:
+        """Positions of the "no" in "sean 15, no 20" (a previous quantity, not a negation)."""
+        return {t.rindex("no", 0, m.start(2)) for m in _QTY.finditer(t) if m.group(2)}
 
     @staticmethod
     def _bind(t: str, hits: list[_Hit], nums: dict[int, re.Match[str]]) -> list[int]:
