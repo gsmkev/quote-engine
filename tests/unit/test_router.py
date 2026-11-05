@@ -133,6 +133,27 @@ CASES = [
         Review("unknown_product", [], None),
     ),
     (
+        "update-no-items",
+        interp(U, [], ids=["Q-001"]),
+        "411",
+        [Q1_FULL, qv("Q-002", {ACR: 2})],
+        Review("unknown_product", ["Q-001"], None),
+    ),
+    (
+        "remove-no-items",
+        interp(Intent.REMOVE_ITEM, []),
+        "411",
+        [Q1_FULL],
+        Review("unknown_product", ["Q-001"], None),
+    ),
+    (
+        "update-item-without-qty",
+        interp(U, [mention([ACR])], ids=["Q-002"]),
+        "411",
+        [Q1_FULL, qv("Q-002", {ACR: 2})],
+        Review("unknown_product", ["Q-002"], None),
+    ),
+    (
         "14-add-existing-sku",
         interp(Intent.ADD_ITEMS, [mention([ACR], 2)]),
         "411",

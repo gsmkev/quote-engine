@@ -114,6 +114,8 @@ def route(
         return ambiguous_quote
 
     q = _pick(interp, open_quotes)
+    if intent in (Intent.UPDATE_QTY, Intent.REMOVE_ITEM) and not interp.items:
+        return Review("unknown_product", [q.id] if q else ids, None)
     if q is None:
         return ambiguous_quote
     ops = [link]
@@ -124,7 +126,7 @@ def route(
                 return Review("ambiguous_line", [q.id], None)
             if intent is Intent.UPDATE_QTY:
                 if it.qty is None:
-                    return unknown
+                    return Review("unknown_product", [q.id], None)
                 ops.append(SetQty(sku, it.qty))
             else:
                 ops.append(RemoveLine(sku))
