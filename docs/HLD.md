@@ -141,7 +141,7 @@ sequenceDiagram
   W->>DB: inbox.status = processed / needs_review, COMMIT
 ```
 
-Claim and work share one transaction. If the work raises, only the savepoint is rolled back and the failure is recorded on the still-locked row (`attempts += 1`, `failed` at 3 or on a `DomainError`), so no other worker can pick the row up in between. A crash rolls everything back and the row stays `pending`.
+Claim and work share one transaction. If the work raises, only the savepoint is rolled back and the failure is recorded on the still-locked row (`attempts += 1`, `failed` at 3), so no other worker can pick the row up in between. A crash rolls everything back and the row stays `pending`.
 
 ## 8. Deterministic vs. model
 
@@ -151,7 +151,7 @@ Claim and work share one transaction. If the work raises, only the savepoint is 
 | Phase 1 extraction | **LLM** (constrained) | items + qty from a whole conversation | SKUs outside the catalog (impossible: enum + check + FK) | A wrong qty/item lands in a **draft**; a human sees it before the ERP. A thread that already feeds a quote goes to review instead of creating a duplicate. |
 | Phase 2 interpretation | **Rules first**, LLM fallback | intent, product mentions → candidate SKUs, qty, previous qty, "separate" flag, explicit quote ids | which quote; any state change | A bad interpretation usually yields no or ambiguous matches → review. Measured by the golden-set evals. |
 | Quote routing | **Router (pure code)** | target quote, or review | —                 | Gives up (review) on a tie, no content signal, an ambiguous line, or an update without items |
-| Mutation validity | **Quote aggregate** | accept or reject an op batch | —                 | Raises `DomainError` → savepoint rolled back → inbox row `failed` |
+| Mutation validity | **Quote aggregate** | accept or reject an op batch | —                 | Raises `DomainError` → nothing applied → review `invalid_ops`, inbox row `needs_review` |
 | Ambiguity | **Human** via `/v1/reviews` | explicit ops, guarded by the quote version | —                 | 409 if the quote changed meanwhile |
 
 ## 9. How a message finds its quote
@@ -163,6 +163,7 @@ Claim and work share one transaction. If the work raises, only the savepoint is 
   * the "previous quantity" matches a line: +2.
 * A unique, positive maximum wins. A tie or zero → review.
 * The chat the message came from is **not a routing signal**. Single exception: "add X" without "aparte" goes to the quote linked to this chat if there is exactly one; otherwise review. If that quote already has the SKU, the add becomes `SetQty(existing + qty)`.
+* The same SKU mentioned twice in one add/new message is merged (quantities summed); an update that gives one line two different quantities → review (`ambiguous_line`).
 * An update or removal with no product → review (`unknown_product`), never a silent link-only change.
 * Once a message is applied to a quote, its chat gets linked to that quote.
 

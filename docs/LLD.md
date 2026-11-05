@@ -121,7 +121,7 @@ CREATE TABLE review_items (
   id bigserial PRIMARY KEY,
   inbox_seq bigint NOT NULL REFERENCES inbox(seq),
   customer_id text NOT NULL,
-  reason text NOT NULL CHECK (reason IN ('ambiguous_quote','ambiguous_line','extraction_failed','unknown_product')),
+  reason text NOT NULL CHECK (reason IN ('ambiguous_quote','ambiguous_line','extraction_failed','unknown_product','invalid_ops')),  -- invalid_ops added in 0002
   candidate_quote_ids text[] NOT NULL,
   interpretation jsonb,
   proposed jsonb,                              -- reserved; the router does not fill it yet
@@ -133,7 +133,7 @@ CREATE TABLE review_items (
 
 * There is no `processing` state. A row is claimed and handled inside **one transaction**, so it is never visible as in progress.
 * If the process crashes, the transaction rolls back and the row stays `pending`: at-least-once, and safe because the state change commits with the status change.
-* A failed attempt is recorded in the **same** transaction, after rolling back a savepoint around the work (see §8). At `MAX_ATTEMPTS = 3`, or immediately on a `DomainError`, the row becomes `failed`.
+* A failed attempt is recorded in the **same** transaction, after rolling back a savepoint around the work (see §8). At `MAX_ATTEMPTS = 3` the row becomes `failed`. A `DomainError` from executing a decision never gets here: it becomes a review (`invalid_ops`).
 * Phase 1 history messages have no id; they are stored as `f"{conversation_id}:{sha256(ts|direction|text)[:12]}"`.
 
 ## 3. Domain contracts (Pydantic v2, `domain/`)
@@ -224,7 +224,7 @@ def score(interp, q) -> int:
 
 def _pick(interp, open_quotes):    # unique positive maximum, else None
 def _resolve_line(it, q):          # candidates present in q, narrowed by previous_qty; exactly one or None
-def _new_lines(items):             # every item has exactly 1 candidate and a qty, else None
+def _new_lines(items):             # every item has exactly 1 candidate and a qty, else None; repeated SKUs merged (qtys summed)
 
 def route(interp, conversation_id, open_quotes) -> Decision:
     link = LinkConversation(conversation_id)
@@ -242,6 +242,7 @@ def route(interp, conversation_id, open_quotes) -> Decision:
         ops = [link]
         UPDATE_QTY / REMOVE_ITEM: per item _resolve_line or Review(ambiguous_line, [q]);
                                   update item without qty -> Review(unknown_product, [q])
+                                  same line twice: deduped; two different qtys -> Review(ambiguous_line, [q])
                                   -> SetQty / RemoveLine
         CANCEL: + Cancel()
         QUERY:  just the link
@@ -349,10 +350,10 @@ LIMIT 1;
 2. `SELECT pg_advisory_xact_lock(hashtext(customer_id))`: serializes against review resolution for the same customer.
 3. `SAVEPOINT` (`begin_nested`), then:
    * **message:** upsert customer + conversation; read the last N messages of the chat; insert the message. `outbound` → `processed`, trace `{"skipped": "outbound"}`. Otherwise `extractor.interpret(ctx)` → `validate_skus` (foreign → `None`) → `open_views(customer)` → `route(...)` + `route_scores(...)`.
-   * **conversation:** upsert, store each history message under its synthetic id. If the thread is already linked to an open quote → `Review(ambiguous_quote, linked)` (a re-post must not create a duplicate). Otherwise `extract_conversation` → items → `NewQuote`, empty/`None`/foreign SKU → `Review(extraction_failed)`.
-   * `_execute(decision)`: `NewQuote` → `Quote.create(next_id(), …, Cause(message_id))`; `Apply` → `get_for_update(quote_id)` (`SELECT … FOR UPDATE`) + `quote.apply(ops, cause)`; then `QuoteRepo.save` (quote row + version, line upserts/deletes, `quote_conversations` with `linked_by_message_id`, `quote_events`). `Review` → `review_items` row, status `needs_review`. `NoOp` → `processed`.
+   * **conversation:** upsert, store each history message under its synthetic id. If the thread is already linked to an open quote → `Review(ambiguous_quote, linked)` (a re-post must not create a duplicate). Otherwise `extract_conversation` → items (repeated SKUs merged) → `NewQuote`, empty/`None`/foreign SKU → `Review(extraction_failed)`.
+   * `_execute(decision)`: `NewQuote` → `Quote.create(next_id(), …, Cause(message_id))`; `Apply` → `get_for_update(quote_id)` (`SELECT … FOR UPDATE`) + `quote.apply(ops, cause)`; then `QuoteRepo.save` (quote row + version, line upserts/deletes, `quote_conversations` with `linked_by_message_id`, `quote_events`). `Review` → `review_items` row, status `needs_review`. `NoOp` → `processed`. A `DomainError` from `create`/`apply` (or a missing quote) turns the decision into `Review(invalid_ops, [quote_id] or [], proposed=the Apply)`, so every non-success outcome lands in `review_items`; the trace records that review.
    * `inbox.finish(seq, status, trace)` with `trace = {extractor_source, interpretation, scores, decision, latency_ms}`.
-4. **On an exception** inside the savepoint: roll back the savepoint only, then `record_failure` on the still-locked row: `attempts += 1`, `error`, `status = failed` if `DomainError` or `attempts >= max_attempts`, else `pending`. Recording the failure under the same row lock is what prevents a second worker from claiming the row between rollback and bookkeeping (a race found in review).
+4. **On an exception** inside the savepoint: roll back the savepoint only, then `record_failure` on the still-locked row: `attempts += 1`, `error`, `status = failed` if `attempts >= max_attempts`, else `pending` (infrastructure errors only; domain errors were already turned into reviews). Recording the failure under the same row lock is what prevents a second worker from claiming the row between rollback and bookkeeping (a race found in review).
 5. Commit; return `True`.
 
 **Loop** (`worker.run`): `process_next` until it returns `False`, then wait `POLL_INTERVAL_S` (0.5 s) or until stop. SIGTERM/SIGINT set the stop event; the current message finishes first.
@@ -374,8 +375,8 @@ In one transaction:
 
 1. Lock the review row (`FOR UPDATE`). Missing or not `open` → `ReviewNotOpen` (409).
 2. Take the customer's advisory lock.
-3. **apply:** `Cause(message_id of the source message, review_id)`; `link_conversation` without an id defaults to the source message's conversation.
-   * `new_quote` → `Quote.create(...)`;
+3. **apply:** `Cause(message_id of the source message, review_id)` (for a Phase 1 conversation: the synthetic id of its last history message); `link_conversation` without an id defaults to the source message's conversation. SKUs in `add_line`/`set_qty` must be in the catalog and every linked conversation must exist and belong to the review's customer, else `DomainError`.
+   * `new_quote` → `Quote.create(...)`; needs at least one `add_line` op and no other op type, else `DomainError`;
    * otherwise `quote_id` and `expected_version` are required (else 422); load the quote `FOR UPDATE` (must belong to the review's customer); `version != expected_version` → `StaleVersion` (409 with the current quote); `quote.apply(ops, cause)`.
    * save.
 4. Review → `resolved` (or `dismissed`), store `resolution`. The inbox row stays `needs_review`: the historical truth.
@@ -427,7 +428,7 @@ In one transaction:
 | Unit — aggregate | pytest | invariants, all-or-nothing batches, idempotent no-ops, events, version bump |
 | Unit — rules | pytest, parametrized | the 4 challenge events + cancel → exact interpretation; tricky phrasings → `None` |
 | Unit — extractors / contracts | pytest | cascade fallback, replay hit/miss/invalid, LLM schema carries the SKU enum, foreign SKU rejected |
-| Integration | pytest + testcontainers `postgres:17` + replay extractor + httpx `ASGITransport` | Phase 1 → Q-001; events 1–4 with state asserted after each, final == challenge JSON; restart (new engine) → same state; event 4 resent → duplicate, version unchanged; same text with a new id → applied; "mejor cancelalo" → review, no change; resolve stale → 409, resolve OK → cancelled with `review_id` in history; re-posted conversation → review; max attempts → failed; `DomainError` → failed at once; two concurrent workers keep per-customer order; failure bookkeeping keeps the row locked |
+| Integration | pytest + testcontainers `postgres:17` + replay extractor + httpx `ASGITransport` | Phase 1 → Q-001; events 1–4 with state asserted after each, final == challenge JSON; restart (new engine) → same state; event 4 resent → duplicate, version unchanged; same text with a new id → applied; "mejor cancelalo" → review, no change; resolve stale → 409, resolve OK → cancelled with `review_id` in history; re-posted conversation → review; max attempts → failed; `DomainError` while executing → review `invalid_ops`; duplicate SKUs merged; conversation review resolved into a new quote; invalid resolution ops → 422; two concurrent workers keep per-customer order; failure bookkeeping keeps the row locked |
 | LLM (`-m llm`) | real Docker Model Runner | Phase 1 sample → exact 3 lines; fallback phrasings; never a foreign SKU |
 | Evals | pydantic-evals, `just eval mode=…` | 23-case golden set: intent acc, SKU-set acc, routing acc (target **and** ops), % rules, p50/p95, review rate, wrong mutations, safe misses; modes `cascade` / `llm` / `rules` |
 

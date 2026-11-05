@@ -93,7 +93,7 @@ With Q-001 and Q-002 open, "mejor cancelalo" has no content signal: no product, 
 | Phase 1 extraction (whole conversation) | **LLM**, JSON-schema constrained | items + qty, reading both directions | a SKU outside the catalog (schema `enum`, then `validate_skus`, then a DB foreign key) | a wrong qty lands in a *draft* a human reviews before the ERP; no items / failure → review |
 | Phase 2 interpretation | **Rules first** (`RuleExtractor`), LLM only when the rules return `None` | intent, product → candidate SKUs, qty, previous qty, "aparte", explicit quote ids | which quote; any state change | rules give up on unknown wording, any unbound number, negated cancel, a query with a qty, a cancel that names products → LLM. LLM failure / timeout / foreign SKU → review |
 | Which quote | **Router**, pure code | target quote, new quote, review, no-op | — | tie, zero score, ambiguous line, update without a product → review |
-| Is the change valid | **Quote aggregate** | accept / reject the op batch, all-or-nothing | — | `DomainError` → nothing applied, inbox row `failed` |
+| Is the change valid | **Quote aggregate** | accept / reject the op batch, all-or-nothing | — | `DomainError` → nothing applied, review `invalid_ops` with the rejected `Apply` as `proposed` |
 | Ambiguity | **Human** via `/v1/reviews` | explicit ops | — | stale version → 409 |
 
 The model never sees the quotes and never picks one; it only fills a typed form. Prompts are in `adapters/extractors/llm.py`; the model is called with temperature 0, 2 validation retries and a 180 s timeout.
@@ -115,7 +115,10 @@ The model never sees the quotes and never picks one; it only fills a typed form.
 | Phase 1 thread posted again | review | must not create a duplicate quote |
 | Outbound (rep) message in Phase 2 | stored as LLM context, never mutates | only the customer's requests change quotes |
 | LLM down, times out, or returns junk | review `extraction_failed` | no state change without a confident interpretation |
-| Worker crash or error mid-message | crash: rollback, row stays pending and is retried; exception: attempt counted, `failed` after 3 (a `DomainError` at once) | claim + work + status in one transaction |
+| Same product twice in one message ("2 acrilicos … y 3 acrilicos") | quantities summed into one line for add/new; an update/remove giving one line two different qtys → review `ambiguous_line` | one line per SKU is a quote invariant |
+| Decision rejected by the quote aggregate (`DomainError`) | review `invalid_ops`, inbox row `needs_review`, no change | every non-success outcome lands in `review_items` |
+| Worker crash or infrastructure error mid-message | crash: rollback, row stays pending and is retried; exception: attempt counted, `failed` after 3 | claim + work + status in one transaction |
+| Quote ids skip a number (Q-003 → Q-005) | cosmetic: ids are unique, not dense | Postgres sequences are non-transactional; a rolled-back creation burns an id |
 | Two workers, same customer | processed strictly in arrival order | claim skips rows with an earlier pending row for the same customer + advisory lock |
 | **Not handled:** relative/positional references ("la de ayer", "la segunda cotización") | usually review (no content match) | needs dates/order semantics in the router; low frequency, and review is a safe default |
 | **Not handled:** the rep dictating changes in Phase 2 ("te dejo 12 entonces") | ignored for mutation | needs an authority model (who may change what); the rep has the review API |
@@ -130,6 +133,7 @@ The model never sees the quotes and never picks one; it only fills a typed form.
 * **Rules before the model.** A regex lexicon is brittle Spanish, but costs nothing, is testable, and *gives up* rather than guesses: in the evals the rules made 0 wrong mutations. The four challenge events never touch the LLM.
 * **Review over guessing.** More human work, but a wrong ERP quote costs more than a review click. Review rate is a KPI to watch.
 * **The model call runs inside the claiming transaction.** Simple and correct (crash = rollback = retry), but it holds a DB connection and the customer's lock for the duration of the call.
+* **`?wait=true` is best effort.** Worst-case LLM time is `LLM_TIMEOUT_S × (1 + max_retries)` (180 s × 3), which can exceed `WAIT_TIMEOUT_S` (300 s) on a slow CPU; the request then returns 202, processing continues, and `/v1/inbox/{seq}` has the outcome.
 * **Postgres for everything** (state, queue, dedupe, locks, history). One thing to operate and back up; no dual-write failure modes.
 
 **Scaling to 1,000 conversations/day.** That is under one conversation per minute; even at ~5 customer messages each it is ~10 messages/min during business hours. What breaks, in order:
@@ -154,7 +158,8 @@ The model never sees the quotes and never picks one; it only fills a typed form.
 | VM, 2-core ARM64 CPU, no GPU | `cascade` (rules → LLM) | 100% | 91% | 96% | 43% | 3.3 s | 23.9 s | 17% | 0 | 1 |
 | VM, 2-core ARM64 CPU, no GPU | `llm` only | 96% | 87% | 91% | 0% | 22.5 s | 26.9 s | 22% | 0 | 2 |
 | VM, 2-core ARM64 CPU, no GPU | `rules` only | 43% | 57% | 48% | 43% | 0 ms | 0 ms | 65% | 0 | 12 |
-| Laptop, RTX 4050 6 GB | `cascade` | pending | | | | | | | | |
+
+GPU numbers are to be measured with `just up-gpu` + `just eval` (not yet run).
 
 Reading: the cascade beats the LLM alone on accuracy *and* skips the model for 43% of messages (the golden set over-weights hard phrasings; real traffic should do better). Rules alone are safe but give up too often. No mode produced a wrong mutation. Full per-case output: `evals/results-*.md` / `.json`.
 
