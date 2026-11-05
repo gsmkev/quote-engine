@@ -155,3 +155,45 @@ async def test_resolve_conversation_review_new_quote(session_factory, uow_factor
     assert {(e["message_id"], e["review_id"]) for e in history} == {(mid, review.id)}
     assert history[0]["message_text"] == last["text"]
     assert linked_by == mid
+
+
+async def expect_422(sf, uow_factory, rid, resolve: ResolveIn) -> None:
+    before = await state(sf, C)
+    async with uow_factory() as uow:
+        with pytest.raises(DomainError):
+            await resolve_review(uow, rid, resolve)
+    assert await state(sf, C) == before
+    assert await review_status(sf, rid) == "open"
+
+
+@pytest.mark.parametrize("op", ["add_line", "set_qty"])
+async def test_non_catalog_sku_rejected(seeded_after_cancel, session_factory, uow_factory, op):
+    v = await version(session_factory)
+    bad = body(expected_version=v, ops=[{"op": op, "sku": "NOPE-1", "qty": 1}])
+    await expect_422(session_factory, uow_factory, seeded_after_cancel, bad)
+
+
+async def test_unknown_conversation_rejected(seeded_after_cancel, session_factory, uow_factory):
+    v = await version(session_factory)
+    bad = body(expected_version=v, ops=[{"op": "link_conversation", "conversation_id": "nope"}])
+    await expect_422(session_factory, uow_factory, seeded_after_cancel, bad)
+
+
+async def test_foreign_conversation_rejected(seeded_after_cancel, session_factory, uow_factory):
+    async with session_factory() as s:
+        await s.execute(text("INSERT INTO customers VALUES ('C-OTHER')"))
+        await s.execute(text("INSERT INTO conversations VALUES ('wa-other', 'C-OTHER')"))
+        await s.commit()
+    v = await version(session_factory)
+    bad = body(expected_version=v, ops=[{"op": "link_conversation", "conversation_id": "wa-other"}])
+    await expect_422(session_factory, uow_factory, seeded_after_cancel, bad)
+
+
+@pytest.mark.parametrize(
+    "ops",
+    [[], [{"op": "add_line", "sku": ACR, "qty": 2}, {"op": "cancel"}]],
+    ids=["no-add-line", "non-add-line-op"],
+)
+async def test_new_quote_ops_validated(seeded_after_cancel, session_factory, uow_factory, ops):
+    bad = ResolveIn(action="apply", new_quote=True, ops=ops)
+    await expect_422(session_factory, uow_factory, seeded_after_cancel, bad)

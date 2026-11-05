@@ -86,6 +86,29 @@ def _source_message_id(payload: dict[str, Any]) -> str | None:
     )
 
 
+async def _validate(uow: UnitOfWork, ops: list[q.Op], customer_id: str) -> None:
+    """Reject ops the DB would refuse (or accept wrongly) with a 422 instead of a 500."""
+    skus = {o.sku for o in ops if isinstance(o, q.AddLine | q.SetQty)}
+    if skus:
+        known = set(
+            (
+                await uow.session.execute(
+                    text("SELECT sku FROM catalog WHERE sku = ANY(:s)"), {"s": list(skus)}
+                )
+            ).scalars()
+        )
+        if skus - known:
+            raise DomainError(f"SKU not in catalog: {sorted(skus - known)}")
+    for conv in {o.conversation_id for o in ops if isinstance(o, q.LinkConversation)}:
+        owner = (
+            await uow.session.execute(
+                text("SELECT customer_id FROM conversations WHERE id = :c"), {"c": conv}
+            )
+        ).scalar_one_or_none()
+        if owner != customer_id:
+            raise DomainError(f"conversation {conv} not found")
+
+
 async def resolve_review(
     uow: UnitOfWork, review_id: int, body: ResolveIn
 ) -> tuple[dict[str, Any], Quote | None]:
@@ -103,8 +126,11 @@ async def resolve_review(
             cause = Cause(_source_message_id(payload), review_id)
             conv = payload["conversation_id"]
             ops = [_to_domain(o, conv) for o in body.ops]
+            await _validate(uow, ops, review.customer_id)
             if body.new_quote:
                 lines = [(o.sku, o.qty) for o in ops if isinstance(o, q.AddLine)]
+                if not lines or len(lines) != len(ops):
+                    raise DomainError("new_quote takes one or more add_line ops and nothing else")
                 quote = Quote.create(
                     await uow.quotes.next_id(), review.customer_id, lines, conv, cause
                 )
