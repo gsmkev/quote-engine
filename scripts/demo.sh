@@ -8,13 +8,19 @@ FX=fixtures/challenge
 C=C-10029
 
 step() { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
-post() { curl -fsS -X POST "$API$1" -H 'content-type: application/json' --data @"$2" | jq -c .; }
+# Pretty-print an ingest response: outcome first, then how it was decided.
+SUMMARY='if .decision then {inbox_seq, status,
+  extractor: .decision.extractor_source, latency_ms: .decision.latency_ms,
+  decision: .decision.decision, router_scores: .decision.scores,
+  interpretation: .decision.interpretation} else . end'
+show() { jq "$SUMMARY"; }
+post() { curl -fsS -X POST "$API$1" -H 'content-type: application/json' --data @"$2" | show; }
 quotes() { curl -fsS "$API/v1/quotes?customer=$C" | jq .; }
 
 step "0. Health / warm-up"
-curl -fsS "$API/health" | jq -c .
+curl -fsS "$API/health" | jq .
 curl -fsS -X POST "$API/v1/messages?wait=true" -H 'content-type: application/json' \
-  -d '{"message_id":"warmup","conversation_id":"warmup","customer_id":"C-WARMUP","direction":"inbound","timestamp":"2026-01-01T00:00:00Z","text":"hola"}' | jq -c .
+  -d '{"message_id":"warmup","conversation_id":"warmup","customer_id":"C-WARMUP","direction":"inbound","timestamp":"2026-01-01T00:00:00Z","text":"hola"}' | show
 
 step "1. Phase 1: conversation history -> draft quote"
 post "/v1/conversations?wait=true" $FX/phase1.json
