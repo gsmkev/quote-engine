@@ -5,14 +5,13 @@
     "n": 23,
     "intent_acc": 0.9565217391304348,
     "sku_acc": 0.8695652173913043,
-    "qty_acc": 0.9565217391304348,
-    "routing_acc": 0.9565217391304348,
+    "routing_acc": 0.9130434782608695,
     "pct_rules": 0.0,
-    "p50_ms": 22619.62675023824,
-    "p95_ms": 27596.584036946297,
-    "review_rate": 0.17391304347826086,
+    "p50_ms": 22513.448489829898,
+    "p95_ms": 26914.85603246838,
+    "review_rate": 0.21739130434782608,
     "wrong_mutations": 0,
-    "safe_misses": 1
+    "safe_misses": 2
   },
   "cases": [
     {
@@ -24,8 +23,7 @@
           "ALFBTC-013-320100",
           "ALMCLC-0909-320100"
         ],
-        "qty": 15,
-        "decision": "apply:Q-001"
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]"
       },
       "got": {
         "intent": "update_qty",
@@ -33,10 +31,9 @@
           "ALFBTC-013-320100",
           "ALMCLC-0909-320100"
         ],
-        "qty": 15,
-        "decision": "apply:Q-001",
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]",
         "source": "llm",
-        "latency_ms": 31943.656323477626
+        "latency_ms": 29796.320475637913
       }
     },
     {
@@ -48,16 +45,14 @@
           "ALFBTC-013-320100",
           "ALMCLC-0909-320100"
         ],
-        "qty": null,
-        "decision": "apply:Q-001"
+        "decision": "apply:Q-001[]"
       },
       "got": {
         "intent": "query",
         "skus": [],
-        "qty": null,
         "decision": "review",
         "source": "llm",
-        "latency_ms": 12778.329025954008
+        "latency_ms": 12893.804382532835
       }
     },
     {
@@ -68,18 +63,16 @@
         "skus": [
           "ARACBL-03-122244"
         ],
-        "qty": 2,
-        "decision": "new"
+        "decision": "new[ARACBL-03-122244=2]"
       },
       "got": {
         "intent": "create_quote",
         "skus": [
           "ARACBL-03-122244"
         ],
-        "qty": 2,
-        "decision": "new",
+        "decision": "new[ARACBL-03-122244=2]",
         "source": "llm",
-        "latency_ms": 22619.62675023824
+        "latency_ms": 22950.507649220526
       }
     },
     {
@@ -90,18 +83,16 @@
         "skus": [
           "ARACBL-03-122244"
         ],
-        "qty": 4,
-        "decision": "apply:Q-002"
+        "decision": "apply:Q-002[set_qty:ARACBL-03-122244=4]"
       },
       "got": {
         "intent": "update_qty",
         "skus": [
           "ARACBL-03-122244"
         ],
-        "qty": 4,
-        "decision": "apply:Q-002",
+        "decision": "apply:Q-002[set_qty:ARACBL-03-122244=4]",
         "source": "llm",
-        "latency_ms": 27593.22866424918
+        "latency_ms": 26315.341512672603
       }
     },
     {
@@ -110,16 +101,14 @@
       "expected": {
         "intent": "cancel",
         "skus": [],
-        "qty": null,
         "decision": "review"
       },
       "got": {
         "intent": "cancel",
         "skus": [],
-        "qty": null,
         "decision": "review",
         "source": "llm",
-        "latency_ms": 4121.8090346083045
+        "latency_ms": 4338.356020860374
       }
     },
     {
@@ -130,18 +119,16 @@
         "skus": [
           "ALFBTC-013-320100"
         ],
-        "qty": 15,
-        "decision": "apply:Q-001"
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]"
       },
       "got": {
         "intent": "update_qty",
         "skus": [
           "ALFBTC-013-320100"
         ],
-        "qty": 15,
-        "decision": "apply:Q-001",
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]",
         "source": "llm",
-        "latency_ms": 22651.694144122303
+        "latency_ms": 22265.37221763283
       }
     },
     {
@@ -152,18 +139,16 @@
         "skus": [
           "ALMCLC-0909-320100"
         ],
-        "qty": 1,
-        "decision": "apply:Q-001"
+        "decision": "apply:Q-001[set_qty:ALMCLC-0909-320100=6]"
       },
       "got": {
         "intent": "add_items",
         "skus": [
           "ALMCLC-0909-320100"
         ],
-        "qty": 1,
-        "decision": "apply:Q-001",
+        "decision": "apply:Q-001[set_qty:ALMCLC-0909-320100=6]",
         "source": "llm",
-        "latency_ms": 24590.96286818385
+        "latency_ms": 23724.630372598767
       }
     },
     {
@@ -174,18 +159,16 @@
         "skus": [
           "AVMICS-1A-137050"
         ],
-        "qty": 8,
-        "decision": "apply:Q-001"
+        "decision": "apply:Q-001[set_qty:AVMICS-1A-137050=8]"
       },
       "got": {
         "intent": "update_qty",
         "skus": [
           "AVMICS-1A-137050"
         ],
-        "qty": 8,
-        "decision": "apply:Q-001",
+        "decision": "apply:Q-001[set_qty:AVMICS-1A-137050=8]",
         "source": "llm",
-        "latency_ms": 25060.550809837878
+        "latency_ms": 21901.676001027226
       }
     },
     {
@@ -196,18 +179,16 @@
         "skus": [
           "AVMICS-1A-137050"
         ],
-        "qty": null,
-        "decision": "apply:Q-001"
+        "decision": "apply:Q-001[remove:AVMICS-1A-137050]"
       },
       "got": {
         "intent": "remove_item",
         "skus": [
           "AVMICS-1A-137050"
         ],
-        "qty": null,
-        "decision": "apply:Q-001",
+        "decision": "apply:Q-001[remove:AVMICS-1A-137050]",
         "source": "llm",
-        "latency_ms": 23853.82454097271
+        "latency_ms": 19942.63338111341
       }
     },
     {
@@ -218,18 +199,16 @@
         "skus": [
           "ARACBL-03-122244"
         ],
-        "qty": 3,
-        "decision": "apply:Q-001"
+        "decision": "apply:Q-001[add:ARACBL-03-122244=3]"
       },
       "got": {
         "intent": "add_items",
         "skus": [
           "ARACBL-03-122244"
         ],
-        "qty": 3,
-        "decision": "apply:Q-001",
+        "decision": "apply:Q-001[add:ARACBL-03-122244=3]",
         "source": "llm",
-        "latency_ms": 20922.260442748666
+        "latency_ms": 22885.490814223886
       }
     },
     {
@@ -240,18 +219,16 @@
         "skus": [
           "ALMCLC-0909-320100"
         ],
-        "qty": 10,
-        "decision": "new"
+        "decision": "new[ALMCLC-0909-320100=10]"
       },
       "got": {
         "intent": "add_items",
         "skus": [
           "ALMCLC-0909-320100"
         ],
-        "qty": 10,
-        "decision": "new",
+        "decision": "new[ALMCLC-0909-320100=10]",
         "source": "llm",
-        "latency_ms": 22858.357405290008
+        "latency_ms": 22513.448489829898
       }
     },
     {
@@ -262,18 +239,16 @@
         "skus": [
           "ARACBL-03-122244"
         ],
-        "qty": 3,
-        "decision": "new"
+        "decision": "new[ARACBL-03-122244=3]"
       },
       "got": {
         "intent": "create_quote",
         "skus": [
           "ARACBL-03-122244"
         ],
-        "qty": 3,
-        "decision": "new",
+        "decision": "new[ARACBL-03-122244=3]",
         "source": "llm",
-        "latency_ms": 22430.856849066913
+        "latency_ms": 23211.609410122037
       }
     },
     {
@@ -284,18 +259,16 @@
         "skus": [
           "ALFBTC-013-320100"
         ],
-        "qty": 6,
-        "decision": "new"
+        "decision": "new[ALFBTC-013-320100=6]"
       },
       "got": {
         "intent": "add_items",
         "skus": [
           "ALFBTC-013-320100"
         ],
-        "qty": 6,
-        "decision": "new",
+        "decision": "new[ALFBTC-013-320100=6]",
         "source": "llm",
-        "latency_ms": 21823.501009494066
+        "latency_ms": 23386.339644901454
       }
     },
     {
@@ -306,18 +279,16 @@
         "skus": [
           "AVMICS-1A-137050"
         ],
-        "qty": 12,
-        "decision": "apply:Q-001"
+        "decision": "apply:Q-001[set_qty:AVMICS-1A-137050=12]"
       },
       "got": {
         "intent": "update_qty",
         "skus": [
           "AVMICS-1A-137050"
         ],
-        "qty": 12,
-        "decision": "apply:Q-001",
+        "decision": "apply:Q-001[set_qty:AVMICS-1A-137050=12]",
         "source": "llm",
-        "latency_ms": 23659.891985356808
+        "latency_ms": 24696.326430886984
       }
     },
     {
@@ -328,18 +299,16 @@
         "skus": [
           "ALMCLC-0909-320100"
         ],
-        "qty": 10,
-        "decision": "new"
+        "decision": "new[ALMCLC-0909-320100=10]"
       },
       "got": {
         "intent": "create_quote",
         "skus": [
           "ALMCLC-0909-320100"
         ],
-        "qty": 10,
-        "decision": "new",
+        "decision": "new[ALMCLC-0909-320100=10]",
         "source": "llm",
-        "latency_ms": 22782.186759635806
+        "latency_ms": 23174.596798606217
       }
     },
     {
@@ -350,18 +319,16 @@
         "skus": [
           "ALFBTC-013-320100"
         ],
-        "qty": 15,
-        "decision": "apply:Q-001"
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]"
       },
       "got": {
         "intent": "update_qty",
         "skus": [
           "ALFBTC-013-320100"
         ],
-        "qty": 15,
-        "decision": "apply:Q-001",
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]",
         "source": "llm",
-        "latency_ms": 23593.368131667376
+        "latency_ms": 23228.81878167391
       }
     },
     {
@@ -372,18 +339,16 @@
         "skus": [
           "ARACBL-03-122244"
         ],
-        "qty": 2,
-        "decision": "apply:Q-001"
+        "decision": "apply:Q-001[add:ARACBL-03-122244=2]"
       },
       "got": {
         "intent": "add_items",
         "skus": [
           "ARACBL-03-122244"
         ],
-        "qty": 2,
-        "decision": "apply:Q-001",
+        "decision": "apply:Q-001[add:ARACBL-03-122244=2]",
         "source": "llm",
-        "latency_ms": 22479.695396497846
+        "latency_ms": 22106.636501848698
       }
     },
     {
@@ -392,7 +357,6 @@
       "expected": {
         "intent": "add_items",
         "skus": [],
-        "qty": null,
         "decision": "review"
       },
       "got": {
@@ -400,10 +364,9 @@
         "skus": [
           "ALFBTC-013-320100"
         ],
-        "qty": null,
         "decision": "review",
         "source": "llm",
-        "latency_ms": 21529.598796740174
+        "latency_ms": 22097.69066143781
       }
     },
     {
@@ -412,16 +375,14 @@
       "expected": {
         "intent": "none",
         "skus": [],
-        "qty": null,
         "decision": "noop"
       },
       "got": {
         "intent": "none",
         "skus": [],
-        "qty": null,
         "decision": "noop",
         "source": "llm",
-        "latency_ms": 3147.000377997756
+        "latency_ms": 3042.5784904509783
       }
     },
     {
@@ -430,16 +391,14 @@
       "expected": {
         "intent": "none",
         "skus": [],
-        "qty": null,
         "decision": "noop"
       },
       "got": {
         "intent": "none",
         "skus": [],
-        "qty": null,
         "decision": "noop",
         "source": "llm",
-        "latency_ms": 3513.997663743794
+        "latency_ms": 3956.6507693380117
       }
     },
     {
@@ -451,7 +410,6 @@
           "ALFBTC-013-320100",
           "ALMCLC-0909-320100"
         ],
-        "qty": 15,
         "decision": "review"
       },
       "got": {
@@ -460,10 +418,9 @@
           "ALFBTC-013-320100",
           "ALMCLC-0909-320100"
         ],
-        "qty": 15,
         "decision": "review",
         "source": "llm",
-        "latency_ms": 27596.584036946297
+        "latency_ms": 26914.85603246838
       }
     },
     {
@@ -472,16 +429,14 @@
       "expected": {
         "intent": "cancel",
         "skus": [],
-        "qty": null,
-        "decision": "apply:Q-002"
+        "decision": "apply:Q-002[cancel]"
       },
       "got": {
         "intent": "cancel",
         "skus": [],
-        "qty": null,
-        "decision": "apply:Q-002",
+        "decision": "apply:Q-002[cancel]",
         "source": "llm",
-        "latency_ms": 9506.709181703627
+        "latency_ms": 10019.073192030191
       }
     },
     {
@@ -492,16 +447,14 @@
         "skus": [
           "ALMCLC-0909-320100"
         ],
-        "qty": 8,
-        "decision": "apply:Q-001"
+        "decision": "apply:Q-001[set_qty:ALMCLC-0909-320100=8]"
       },
       "got": {
         "intent": "update_qty",
         "skus": [],
-        "qty": null,
-        "decision": "apply:Q-001",
+        "decision": "review",
         "source": "llm",
-        "latency_ms": 9578.321122564375
+        "latency_ms": 9488.878068514168
       }
     }
   ]
