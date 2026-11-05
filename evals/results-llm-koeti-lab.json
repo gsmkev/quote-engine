@@ -1,0 +1,508 @@
+{
+  "mode": "llm",
+  "host": "koeti-lab",
+  "metrics": {
+    "n": 23,
+    "intent_acc": 0.9565217391304348,
+    "sku_acc": 0.8695652173913043,
+    "qty_acc": 0.9565217391304348,
+    "routing_acc": 0.9565217391304348,
+    "pct_rules": 0.0,
+    "p50_ms": 22619.62675023824,
+    "p95_ms": 27596.584036946297,
+    "review_rate": 0.17391304347826086,
+    "wrong_mutations": 0,
+    "safe_misses": 1
+  },
+  "cases": [
+    {
+      "name": "event1",
+      "text": "Oye de las lonas mejor que sean 15, no 20",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-320100"
+        ],
+        "qty": 15,
+        "decision": "apply:Q-001"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-320100"
+        ],
+        "qty": 15,
+        "decision": "apply:Q-001",
+        "source": "llm",
+        "latency_ms": 31943.656323477626
+      }
+    },
+    {
+      "name": "event2",
+      "text": "Buen dia, soy Mario de compras de ACME. Alice me pasó con ustedes, me confirmas qué lleva la cotización de las lonas?",
+      "expected": {
+        "intent": "query",
+        "skus": [
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-320100"
+        ],
+        "qty": null,
+        "decision": "apply:Q-001"
+      },
+      "got": {
+        "intent": "query",
+        "skus": [],
+        "qty": null,
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 12778.329025954008
+      }
+    },
+    {
+      "name": "event3",
+      "text": "y aparte cotizame 2 acrilicos blancos de 3mm porfa",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ARACBL-03-122244"
+        ],
+        "qty": 2,
+        "decision": "new"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ARACBL-03-122244"
+        ],
+        "qty": 2,
+        "decision": "new",
+        "source": "llm",
+        "latency_ms": 22619.62675023824
+      }
+    },
+    {
+      "name": "event4",
+      "text": "perfecto. y de los acrilicos que cotizó Alice, mejor que sean 4",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ARACBL-03-122244"
+        ],
+        "qty": 4,
+        "decision": "apply:Q-002"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ARACBL-03-122244"
+        ],
+        "qty": 4,
+        "decision": "apply:Q-002",
+        "source": "llm",
+        "latency_ms": 27593.22866424918
+      }
+    },
+    {
+      "name": "cancel-ambiguous",
+      "text": "mejor cancelalo",
+      "expected": {
+        "intent": "cancel",
+        "skus": [],
+        "qty": null,
+        "decision": "review"
+      },
+      "got": {
+        "intent": "cancel",
+        "skus": [],
+        "qty": null,
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 4121.8090346083045
+      }
+    },
+    {
+      "name": "para-frontlit",
+      "text": "que sean 15 las frontlit",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-320100"
+        ],
+        "qty": 15,
+        "decision": "apply:Q-001"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-320100"
+        ],
+        "qty": 15,
+        "decision": "apply:Q-001",
+        "source": "llm",
+        "latency_ms": 22651.694144122303
+      }
+    },
+    {
+      "name": "para-suma-mesh",
+      "text": "súmale 1 rollo de mesh",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALMCLC-0909-320100"
+        ],
+        "qty": 1,
+        "decision": "apply:Q-001"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALMCLC-0909-320100"
+        ],
+        "qty": 1,
+        "decision": "apply:Q-001",
+        "source": "llm",
+        "latency_ms": 24590.96286818385
+      }
+    },
+    {
+      "name": "para-vinil-a-8",
+      "text": "cambiame los vinil a 8 mejor",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "AVMICS-1A-137050"
+        ],
+        "qty": 8,
+        "decision": "apply:Q-001"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "AVMICS-1A-137050"
+        ],
+        "qty": 8,
+        "decision": "apply:Q-001",
+        "source": "llm",
+        "latency_ms": 25060.550809837878
+      }
+    },
+    {
+      "name": "para-ya-no-micro",
+      "text": "ya no quiero el microperforado",
+      "expected": {
+        "intent": "remove_item",
+        "skus": [
+          "AVMICS-1A-137050"
+        ],
+        "qty": null,
+        "decision": "apply:Q-001"
+      },
+      "got": {
+        "intent": "remove_item",
+        "skus": [
+          "AVMICS-1A-137050"
+        ],
+        "qty": null,
+        "decision": "apply:Q-001",
+        "source": "llm",
+        "latency_ms": 23853.82454097271
+      }
+    },
+    {
+      "name": "para-agrega-acrilicos",
+      "text": "me puedes agregar 3 acrilicos blancos",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ARACBL-03-122244"
+        ],
+        "qty": 3,
+        "decision": "apply:Q-001"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ARACBL-03-122244"
+        ],
+        "qty": 3,
+        "decision": "apply:Q-001",
+        "source": "llm",
+        "latency_ms": 20922.260442748666
+      }
+    },
+    {
+      "name": "para-new-mesh",
+      "text": "necesito 10 rollos de mesh 9x9",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALMCLC-0909-320100"
+        ],
+        "qty": 10,
+        "decision": "new"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALMCLC-0909-320100"
+        ],
+        "qty": 10,
+        "decision": "new",
+        "source": "llm",
+        "latency_ms": 22858.357405290008
+      }
+    },
+    {
+      "name": "typo-acrilcos",
+      "text": "cotizame 3 acrilcos blancos",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [
+          "ARACBL-03-122244"
+        ],
+        "qty": 3,
+        "decision": "new"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ARACBL-03-122244"
+        ],
+        "qty": 3,
+        "decision": "new",
+        "source": "llm",
+        "latency_ms": 22430.856849066913
+      }
+    },
+    {
+      "name": "typo-lonsa",
+      "text": "necesito 6 lonsa frontlit",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALFBTC-013-320100"
+        ],
+        "qty": 6,
+        "decision": "new"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALFBTC-013-320100"
+        ],
+        "qty": 6,
+        "decision": "new",
+        "source": "llm",
+        "latency_ms": 21823.501009494066
+      }
+    },
+    {
+      "name": "typo-microperforadso",
+      "text": "mejor que sean 12 los microperforadso",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "AVMICS-1A-137050"
+        ],
+        "qty": 12,
+        "decision": "apply:Q-001"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "AVMICS-1A-137050"
+        ],
+        "qty": 12,
+        "decision": "apply:Q-001",
+        "source": "llm",
+        "latency_ms": 23659.891985356808
+      }
+    },
+    {
+      "name": "words-diez-mesh",
+      "text": "cotizame diez rollos de lona mesh",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [
+          "ALMCLC-0909-320100"
+        ],
+        "qty": 10,
+        "decision": "new"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ALMCLC-0909-320100"
+        ],
+        "qty": 10,
+        "decision": "new",
+        "source": "llm",
+        "latency_ms": 22782.186759635806
+      }
+    },
+    {
+      "name": "words-quince-frontlit",
+      "text": "mejor que sean quince las frontlit, no veinte",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-320100"
+        ],
+        "qty": 15,
+        "decision": "apply:Q-001"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-320100"
+        ],
+        "qty": 15,
+        "decision": "apply:Q-001",
+        "source": "llm",
+        "latency_ms": 23593.368131667376
+      }
+    },
+    {
+      "name": "words-dos-acrilicos",
+      "text": "agrega dos acrilicos blancos",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ARACBL-03-122244"
+        ],
+        "qty": 2,
+        "decision": "apply:Q-001"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ARACBL-03-122244"
+        ],
+        "qty": 2,
+        "decision": "apply:Q-001",
+        "source": "llm",
+        "latency_ms": 22479.695396497846
+      }
+    },
+    {
+      "name": "trap-lona-5x100",
+      "text": "necesito lona 5x100",
+      "expected": {
+        "intent": "add_items",
+        "skus": [],
+        "qty": null,
+        "decision": "review"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALFBTC-013-320100"
+        ],
+        "qty": null,
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 21529.598796740174
+      }
+    },
+    {
+      "name": "trap-gracias",
+      "text": "gracias!",
+      "expected": {
+        "intent": "none",
+        "skus": [],
+        "qty": null,
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "none",
+        "skus": [],
+        "qty": null,
+        "decision": "noop",
+        "source": "llm",
+        "latency_ms": 3147.000377997756
+      }
+    },
+    {
+      "name": "trap-ok-atento",
+      "text": "ok quedo atento",
+      "expected": {
+        "intent": "none",
+        "skus": [],
+        "qty": null,
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "none",
+        "skus": [],
+        "qty": null,
+        "decision": "noop",
+        "source": "llm",
+        "latency_ms": 3513.997663743794
+      }
+    },
+    {
+      "name": "trap-lonas-sin-tipo",
+      "text": "mejor que sean 15 las lonas",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-320100"
+        ],
+        "qty": 15,
+        "decision": "review"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-320100"
+        ],
+        "qty": 15,
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 27596.584036946297
+      }
+    },
+    {
+      "name": "id-cancel-q2",
+      "text": "cancela Q-002 por favor",
+      "expected": {
+        "intent": "cancel",
+        "skus": [],
+        "qty": null,
+        "decision": "apply:Q-002"
+      },
+      "got": {
+        "intent": "cancel",
+        "skus": [],
+        "qty": null,
+        "decision": "apply:Q-002",
+        "source": "llm",
+        "latency_ms": 9506.709181703627
+      }
+    },
+    {
+      "name": "id-q1-mesh",
+      "text": "en Q-001 pon 8 de las lonas mesh",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALMCLC-0909-320100"
+        ],
+        "qty": 8,
+        "decision": "apply:Q-001"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [],
+        "qty": null,
+        "decision": "apply:Q-001",
+        "source": "llm",
+        "latency_ms": 9578.321122564375
+      }
+    }
+  ]
+}
