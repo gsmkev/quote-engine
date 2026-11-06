@@ -54,8 +54,36 @@ _DIM_REACH = 25
 # Words a bare cancel ("mejor cancelalo", "cancela todo porfa") may carry; anything else may
 # name what to cancel, which rules cannot judge.
 _CANCEL_FILLER = frozenset(
-    "mejor todo toda la el lo mi esa esta eso cotizacion pedido orden por favor porfa plis xfa "
-    "pls entonces ya y pues ok si bueno oye gracias".split()
+    [
+        "mejor",
+        "todo",
+        "toda",
+        "la",
+        "el",
+        "lo",
+        "mi",
+        "esa",
+        "esta",
+        "eso",
+        "cotizacion",
+        "pedido",
+        "orden",
+        "por",
+        "favor",
+        "porfa",
+        "plis",
+        "xfa",
+        "pls",
+        "entonces",
+        "ya",
+        "y",
+        "pues",
+        "ok",
+        "si",
+        "bueno",
+        "oye",
+        "gracias",
+    ]
 )
 
 
