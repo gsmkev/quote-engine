@@ -38,6 +38,12 @@ _LESS = re.compile(
     rf"\b(?:quita|resta|baja|descuenta|reduce)(?:le|les)? (\d+)\b|\b(\d+) {_COUNT_UNIT}menos\b"
 )
 _MORE = re.compile(rf"\b(\d+) {_COUNT_UNIT}mas\b")
+# Order verbs (typos included): with a quantity and no question, a "nothing to do" reading is
+# a silent miss.
+_ORDER = re.compile(
+    r"\bcoti[zs]a(?:me|nos)\b|\bne[cs]e[cs]i(?:to|tamos)\b|\bmanda(?:me|nos)\b|\bk?quiero\b"
+    r"|\bkiero\b|\bpon(?:le|me)\b"
+)
 _MUTATING = {
     Intent.CREATE_QUOTE,
     Intent.ADD_ITEMS,
@@ -68,9 +74,14 @@ class Guard:
     def __call__(
         self, text: str, interp: MessageInterpretation | None
     ) -> MessageInterpretation | None:
-        if interp is None or interp.intent not in _MUTATING:
-            return interp
+        if interp is None:
+            return None
         t = norm(text)
+        if interp.intent not in _MUTATING:
+            ordered = _ORDER.search(t) or _ADDS.search(t) or _SETS.search(t)
+            if ordered and _DIGIT.search(t) and "?" not in t and not _PRICE_Q.search(t):
+                return None
+            return interp
         if _PRICE_Q.search(t):
             # "cuanto me sale si llevo 10 en vez de 20?" asks, it does not order
             return interp.model_copy(update={"intent": Intent.QUERY})

@@ -196,3 +196,26 @@ def test_relative_change_on_several_items_goes_to_review(text):
 def test_relative_increase_on_plain_add_passes():
     i = interp(Intent.ADD_ITEMS, item([CYAN], 2), item([MAG], 3))
     assert guard("sumale 2 rollos mas de cyan y agrega 3 magenta", i) is i
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "nesesito 4 planchas de trovicel de 5mm xfa",
+        "cotizame 100 hojas de papel fotografico",
+        "las sintras q sean 12 plis",
+    ],
+)
+@pytest.mark.parametrize("intent", [Intent.NONE, Intent.QUERY])
+def test_order_read_as_no_action_goes_to_review(text, intent):
+    # a clear order with a quantity must never end as a silent noop
+    assert guard(text, interp(intent)) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["me cotizas 3 lonas?", "gracias!", "cuanto sale cotizar 3 lonas", "tienen sintra de 10mm?"],
+)
+def test_questions_and_chatter_stay_non_actions(text):
+    i = interp(Intent.QUERY)
+    assert guard(text, i) is i
