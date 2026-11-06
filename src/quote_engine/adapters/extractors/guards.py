@@ -65,7 +65,8 @@ _PRICE_ASIDE = re.compile(r"\b(?:con|me das|me pasas|dame|y)\s+(?:el\s+|su\s+)?p
 _VERBS = re.compile(
     r"\bcoti[zsc](?!acion|ar\b)\w*|\bne[cs]e[cs]i(?:to|tamos)\b"
     r"|\bmanda(?:me|nos)?\b|\bk?quiero\b|\bkiero\b|\bpon(?:e|le|les|me)?\b|\bagreg\w*"
-    r"|\bsuma(?:le|les|me)?\b|\bllevo\b|\btambien\b|\bme pasas \d"
+    r"|\bsuma(?:le|les|me)?\b|\bllevo\b|\btambien\b|\bme pasas \d|\bpasame \d|\bdame\b"
+    r"|\bocup(?:o|amos)\b"
 )
 _NUMBER_WORD = (
     r"uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince"
@@ -161,11 +162,13 @@ class Guard:
             interp = interp.model_copy(update={"items": items})
         t = norm(text)
         verbs = bool(_VERBS.search(t))
+        hedged = _non_assertive(t, verbs)
         if interp.intent not in _MUTATING:
             ordered = verbs or (_SETS.search(t) and _DIGIT.search(t))
-            return None if ordered else interp  # an order read as nothing to do: never silent
-        if _non_assertive(t, verbs):
-            return None if verbs else interp.model_copy(update={"intent": Intent.QUERY})
+            counted = hedged and any(it.qty is not None for it in interp.items)
+            return None if ordered or counted else interp  # an order is never a silent no-op
+        if hedged:
+            return None  # a question/hedge read as a mutation: never apply, never downgrade
         if _negated(t, interp.intent):
             return None
         if _TEMPORAL.search(t):

@@ -373,10 +373,9 @@ def test_questions_hypotheticals_and_negations_never_mutate(text, intent, it):
 
 
 @pytest.mark.parametrize("text", NON_ASSERTIVE[1:3])
-def test_question_without_order_verb_is_a_query(text):
-    got = guard(text, interp(Intent.UPDATE_QTY, item([FBT], 10, 20)))
-    assert got is not None
-    assert got.intent == Intent.QUERY
+def test_question_read_as_a_mutation_goes_to_review(text):
+    # a mutation reading is never silently downgraded: a human decides
+    assert guard(text, interp(Intent.UPDATE_QTY, item([FBT], 10, 20))) is None
 
 
 @pytest.mark.parametrize(
@@ -622,3 +621,60 @@ async def test_task8b_assertive_rules_orders_still_extract():
     ]:
         r = await RuleExtractor(CATALOG).interpret(MessageCtx("m", "c1", "cu", "inbound", text, []))
         assert r is not None and r.intent == Intent.ADD_ITEMS, text
+
+
+HEDGED_ORDERS = [
+    "dame 5 mesh, cuando lo tengas me avisas",
+    "ocupo 5 mesh para cuando puedas",
+    "5 mesh 3.20x100 porfa, cuando puedas me avisas",
+    "va, 5 mesh, cuando lo tengas me avisas",
+    "listo, 5 mesh apenas puedas",
+    "5 mesh, te aviso cualquier cosa",
+    "serian 5 mesh",
+    "5 mesh, serian todos",
+    "5 mesh de 3.20 o 1.60",
+]
+
+
+@pytest.mark.parametrize("text", HEDGED_ORDERS)
+@pytest.mark.parametrize("intent", [Intent.ADD_ITEMS, Intent.CREATE_QUOTE])
+def test_hedged_orders_go_to_review_not_query(text, intent):
+    assert guard(text, interp(intent, item([MESH], 5))) is None
+
+
+@pytest.mark.parametrize("text", HEDGED_ORDERS)
+@pytest.mark.parametrize("intent", [Intent.QUERY, Intent.NONE])
+def test_hedged_order_read_as_no_action_with_qty_goes_to_review(text, intent):
+    assert guard(text, interp(intent, item([MESH], 5))) is None
+
+
+@pytest.mark.parametrize("text", HEDGED_ORDERS)
+async def test_hedged_orders_rules_never_mutate(text):
+    from quote_engine.adapters.extractors.rules import RuleExtractor
+    from quote_engine.application.ports import MessageCtx
+
+    r = await RuleExtractor(CATALOG).interpret(MessageCtx("m", "c1", "cu", "inbound", text, []))
+    assert r is None or r.intent in (Intent.QUERY, Intent.NONE)
+    _routes_safely(r)
+
+
+def test_question_without_quantity_read_as_query_stays_a_query():
+    q = interp(Intent.QUERY, item([MESH]))
+    assert guard("cuando tienen mesh?", q) is q
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "mandame 5 mesh 3.20x100",
+        "dame 5 mesh 3.20x100",
+        "ocupo 5 mesh 3.20x100",
+        "pasame 5 mesh 3.20x100",
+    ],
+)
+async def test_more_order_verbs_are_rules_adds(text):
+    from quote_engine.adapters.extractors.rules import RuleExtractor
+    from quote_engine.application.ports import MessageCtx
+
+    r = await RuleExtractor(CATALOG).interpret(MessageCtx("m", "c1", "cu", "inbound", text, []))
+    assert r is not None and r.intent == Intent.ADD_ITEMS, text

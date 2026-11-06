@@ -47,6 +47,7 @@ _UPDATE = re.compile(r"\bmejor (?:que )?sean\b|\b(?:que|q) sean\b|\bcambia\w*|\b
 _ADD = re.compile(
     r"\bcoti[zs]a(?:me|s|r|nos)?\b|\bagrega\w*|\bsuma(?:le|les|me)?\b|\btambien\b"
     r"|\bne[cs]e[cs]ito\b|(?<!\bno )\bk?quiero\b|(?<!\bno )\bkiero\b"
+    r"|\bdame\b|\bocup(?:o|amos)\b|\bmanda(?:me|nos)?\b|\bpasame\b"
 )
 _SETS = re.compile(_UPDATE.pattern + r"|\bsean\b")
 _QUERY = re.compile(r"\bque lleva\b|\bconfirmas\b|\bcuanto\b|\?$")
