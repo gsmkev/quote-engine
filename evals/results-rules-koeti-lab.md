@@ -1,17 +1,17 @@
-**Mode `rules`** on `koeti-lab` (123 golden cases)
+**Mode `rules`** on `koeti-lab` (127 golden cases)
 
 | intent acc | SKU-set acc | routing acc (target+ops) | % rules (no LLM) | p50 ms | p95 ms | review rate | wrong apply/new | review instead of apply (safe miss) |
 |---|---|---|---|---|---|---|---|---|
-| 37% | 63% | 62% | 41% | 0 | 0 | 71% | 0 | 47 |
+| 37% | 63% | 61% | 42% | 0 | 0 | 70% | 0 | 49 |
 
 | category | n | routing exact | wrong mutations | safe misses |
 |---|---|---|---|---|
 | legacy | 23 | 74% | 0 | 6 |
 | catalog_new | 9 | 100% | 0 | 0 |
 | typos_slang | 8 | 75% | 0 | 2 |
-| units_quantities | 8 | 12% | 0 | 7 |
+| units_quantities | 11 | 27% | 0 | 8 |
 | multi_item | 7 | 71% | 0 | 2 |
-| corrections | 7 | 29% | 0 | 5 |
+| corrections | 8 | 25% | 0 | 6 |
 | partial_remove | 6 | 33% | 0 | 4 |
 | out_of_catalog | 16 | 88% | 0 | 2 |
 | questions_noop | 8 | 12% | 0 | 7 |
@@ -72,3 +72,5 @@ Routing misses:
 | ca-by-content | apply:Q-002[cancel] | review | None |
 | ca-partial | apply:Q-001[remove:AVMICS-1A-137050] | review | None |
 | ca-negated | noop | review | None |
+| uq-quitale-dos | apply:Q-001[set_qty:ALFBTC-013-320100=18] | review | None |
+| co-5-menos | apply:Q-001[set_qty:ALFBTC-013-320100=15] | review | None |
