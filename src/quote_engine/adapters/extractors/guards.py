@@ -68,6 +68,8 @@ _ORDER = re.compile(
     r"\bcoti[zs]a(?:me|nos)\b|\bne[cs]e[cs]i(?:to|tamos)\b|\bmanda(?:me|nos)\b|\bk?quiero\b"
     r"|\bkiero\b|\bpon(?:le|me)\b"
 )
+# "acrilico dorado manejan?": asking whether we carry something is not an order
+_ASK = re.compile(r"\b(?:manejan|tienen|venden|hay|trabajan)\b[^?]*\?")
 _MUTATING = {
     Intent.CREATE_QUOTE,
     Intent.ADD_ITEMS,
@@ -106,7 +108,8 @@ class Guard:
             if ordered and _DIGIT.search(t) and "?" not in t and not _PRICE_Q.search(t):
                 return None
             return interp
-        if _PRICE_Q.search(t):
+        asks = _ASK.search(t) and not (_ORDER.search(t) or _ADDS.search(t))
+        if _PRICE_Q.search(t) or asks:
             # "cuanto me sale si llevo 10 en vez de 20?" asks, it does not order
             return interp.model_copy(update={"intent": Intent.QUERY})
         if _TEMPORAL.search(t):

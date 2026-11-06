@@ -32,9 +32,11 @@ def test_passes_through_none_and_non_mutating():
         "cuanto me sale si llevo 10 lonas frontlit en vez de 20?",
         "y cuanto cuestan 5 frontlit",
         "pasame precio de 10 frontlit",
+        "y acrilico dorado manejan? para ver si lo sumo a la Q-001",
+        "tienen lona de 5 metros de ancho?",
     ],
 )
-def test_price_question_never_mutates(text):
+def test_questions_never_mutate(text):
     got = guard(text, interp(Intent.UPDATE_QTY, item(FRONTLITS, 10, 20)))
     assert got is not None
     assert got.intent == Intent.QUERY
@@ -246,3 +248,8 @@ def test_bare_or_whole_cancel_passes(text):
 
 def test_cancel_all_of_something_goes_to_review():
     assert guard("cancela todo lo del papel fotografico", interp(Intent.CANCEL)) is None
+
+
+def test_availability_question_with_an_order_still_orders():
+    i = interp(Intent.ADD_ITEMS, ItemMention(mention="tela", sku_candidates=[], in_catalog=False))
+    assert guard("tienen tela canvas? necesito 5 rollos", i) is i
