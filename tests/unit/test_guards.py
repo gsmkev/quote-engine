@@ -716,6 +716,19 @@ def test_unparsed_relative_change_goes_to_review(text, intent):
 
 
 @pytest.mark.parametrize(
+    "text",
+    [
+        "sumale 5 a las lonas",
+        "súmale 5 a las lonas",
+        "suma 5 a las frontlit",
+        "agregale 5 a las lonas",
+    ],
+)
+def test_add_verb_read_as_absolute_set_goes_to_review(text):
+    assert guard(text, interp(Intent.UPDATE_QTY, item([FBT], 5))) is None
+
+
+@pytest.mark.parametrize(
     ("text", "intent", "it"),
     [
         ("quitale el mesh", Intent.REMOVE_ITEM, item([MESH])),

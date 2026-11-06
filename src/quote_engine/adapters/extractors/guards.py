@@ -222,7 +222,9 @@ class Guard:
         """Relative changes only move one existing line; anything less clear goes to review."""
         less, more = _LESS.search(t), _MORE.search(t)
         if less is None and more is None:
-            return None if _RELATIVE_CUE.search(t) else interp
+            # "sumale 5 a las lonas" read as an absolute set would overwrite, not add.
+            adds_as_set = interp.intent is Intent.UPDATE_QTY and _ADDS.search(t)
+            return None if _RELATIVE_CUE.search(t) or adds_as_set else interp
         if _NEGATOR.search(t) or (less and more):
             return None  # "ya no quiero 2 mas", "ponle 2 mas, no 5": not ours to guess
         if more is not None and interp.intent is Intent.ADD_ITEMS and not _TAKE_AWAY.search(t):
