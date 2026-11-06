@@ -273,3 +273,9 @@ async def test_mixed_message_decides_per_item():
     lona, vinil = r.items
     assert lona.in_catalog and set(lona.sku_candidates) == LONAS_320100
     assert not vinil.in_catalog and vinil.qty == 2
+
+
+async def test_typo_order_verb_and_sheet_unit():
+    r, item = await item_of("nesesito 4 planchas de trovicel de 5mm xfa")
+    assert r.intent == Intent.ADD_ITEMS
+    assert (item.sku_candidates, item.qty) == ([PVC_5], 4)
