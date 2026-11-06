@@ -219,3 +219,30 @@ def test_order_read_as_no_action_goes_to_review(text, intent):
 def test_questions_and_chatter_stay_non_actions(text):
     i = interp(Intent.QUERY)
     assert guard(text, i) is i
+
+
+@pytest.mark.parametrize(
+    "text", ["cancela lo del papel fotografico", "cancela el microperforado nomas, lo demas sigue"]
+)
+def test_itemless_cancel_naming_something_goes_to_review(text):
+    # the extractor dropped what was named: a whole-quote cancel would be a guess
+    assert guard(text, interp(Intent.CANCEL)) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "mejor cancelalo",
+        "cancela Q-002 por favor",
+        "cancela todo porfa",
+        "mira al final el cliente se echo para atras asi que cancela todo lo que teniamos "
+        "cotizado perdon por las molestias eh",
+    ],
+)
+def test_bare_or_whole_cancel_passes(text):
+    i = interp(Intent.CANCEL)
+    assert guard(text, i) is i
+
+
+def test_cancel_all_of_something_goes_to_review():
+    assert guard("cancela todo lo del papel fotografico", interp(Intent.CANCEL)) is None

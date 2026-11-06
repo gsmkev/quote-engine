@@ -10,6 +10,30 @@ from quote_engine.adapters.extractors.text import norm
 from quote_engine.domain.catalog import Catalog
 from quote_engine.domain.interpretation import Intent, MessageInterpretation
 
+CANCEL = re.compile(r"\bcancela\w*|\banula\w*|\bya no (?:lo )?quiero\b")
+# Words a bare cancel ("mejor cancelalo", "cancela todo porfa") may carry; anything else may
+# name what to cancel.
+_CANCEL_FILLER = frozenset(
+    {
+        *("mejor", "todo", "toda", "la", "el", "lo", "mi", "esa", "esta", "eso"),
+        *("cotizacion", "pedido", "orden", "por", "favor", "porfa", "plis", "xfa", "pls"),
+        *("entonces", "ya", "y", "pues", "ok", "si", "bueno", "oye", "gracias"),
+    }
+)
+# "cancela todo lo que teniamos": the whole quote, unless "todo lo de <something>"
+_WHOLE_CANCEL = re.compile(
+    r"\b(?:cancel|anul)\w*\s+(?:todo|toda|la cotizacion|el pedido|la orden)\b"
+    r"(?!\s+(?:lo\s+)?(?:de|del)\b)"
+)
+_QUOTE_ID = re.compile(r"\bq-?\d{3}\b")
+
+
+def is_bare_cancel(t: str) -> bool:
+    """A normalised cancel message that names nothing but the cancel itself."""
+    rest = re.findall(r"[a-z]+", CANCEL.sub(" ", _QUOTE_ID.sub(" ", t)))
+    return all(w in _CANCEL_FILLER for w in rest)
+
+
 _PRICE_Q = re.compile(
     r"\bcuanto (?:me |nos )?(?:sale|salen|saldria|cuesta|cuestan|costaria|seria|serian|cobran)\b"
     r"|\bprecios?\b|\bme sale\b"
@@ -87,6 +111,9 @@ class Guard:
             return interp.model_copy(update={"intent": Intent.QUERY})
         if _TEMPORAL.search(t):
             return None
+        whole = is_bare_cancel(t) or _WHOLE_CANCEL.search(t)
+        if interp.intent is Intent.CANCEL and not interp.items and not whole:
+            return None  # the extractor dropped what was named; a whole cancel is a guess
         if self._off_alias(interp) or _UNIT.search(t) or (_ADDS.search(t) and _SETS.search(t)):
             return None
         if _SWAP.search(t) or (_MISTAKE.search(t) and not _DIGIT.search(t)):

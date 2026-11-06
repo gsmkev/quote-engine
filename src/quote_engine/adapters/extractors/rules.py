@@ -3,7 +3,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from quote_engine.adapters.extractors.guards import Guard
+from quote_engine.adapters.extractors.guards import CANCEL, Guard, is_bare_cancel
 from quote_engine.adapters.extractors.text import norm
 from quote_engine.application.ports import ConversationCtx, MessageCtx
 from quote_engine.domain.catalog import Catalog
@@ -43,7 +43,7 @@ _NEGATOR = re.compile(r"\b(?:no|sin|excepto|menos|salvo)\b")
 _NUM = re.compile(r"\d+")
 _QTY = re.compile(r"\b(?:sean|seria|serian|a)\s+(\d+)(?!\.?\d)(?:\s*,?\s*no\s+(\d+)(?!\.?\d))?")
 _UNIT = re.compile(r"\s+(?:rollos?|piezas?|unidades?|planchas?|laminas?)\b")
-_CANCEL = re.compile(r"\bcancela\w*|\banula\w*|\bya no (?:lo )?quiero\b")
+_CANCEL = CANCEL
 _UPDATE = re.compile(r"\bmejor (?:que )?sean\b|\b(?:que|q) sean\b|\bcambia\w*|\ben vez de\b")
 _ADD = re.compile(
     r"\bcoti[zs]a(?:me|s|r|nos)?\b|\bagrega\w*|\bsuma(?:le|les|me)?\b|\btambien\b"
@@ -55,40 +55,6 @@ _NO_N = re.compile(r"\bno\s+(\d+)")
 _NEGATED = re.compile(r"\bno (?:me |lo |la )?(?:cancel|anul)\w*")
 _SEPARATE = re.compile(r"\baparte\b|\botra cotizacion\b|\bpor separado\b")
 _DIM_REACH = 25
-# Words a bare cancel ("mejor cancelalo", "cancela todo porfa") may carry; anything else may
-# name what to cancel, which rules cannot judge.
-_CANCEL_FILLER = frozenset(
-    [
-        "mejor",
-        "todo",
-        "toda",
-        "la",
-        "el",
-        "lo",
-        "mi",
-        "esa",
-        "esta",
-        "eso",
-        "cotizacion",
-        "pedido",
-        "orden",
-        "por",
-        "favor",
-        "porfa",
-        "plis",
-        "xfa",
-        "pls",
-        "entonces",
-        "ya",
-        "y",
-        "pues",
-        "ok",
-        "si",
-        "bueno",
-        "oye",
-        "gracias",
-    ]
-)
 
 
 def _blank(text: str, spans: list[tuple[int, int]]) -> str:
@@ -211,8 +177,7 @@ class RuleExtractor:
             raise _GiveUp
         sep = bool(_SEPARATE.search(t))
         if intent == Intent.CANCEL:
-            rest = re.findall(r"[a-z]+", _CANCEL.sub(" ", t))
-            if hits or any(w not in _CANCEL_FILLER for w in rest):
+            if hits or not is_bare_cancel(t):
                 raise _GiveUp
             return MessageInterpretation(intent=intent, explicit_quote_ids=ids, source="rules")
         if not hits:
