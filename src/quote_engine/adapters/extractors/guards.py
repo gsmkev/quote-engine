@@ -23,6 +23,12 @@ _TEMPORAL = re.compile(
 _SWAP = re.compile(r"\beran? (?:el|la|los|las|de|del)\b.*\bno (?:el|la|los|las|de|del)\b")
 _MISTAKE = re.compile(r"\bme equivoque\b")
 _DIGIT = re.compile(r"\d")
+# Units we do not sell by (we sell rolls, sheets and 1L bottles); a dimension ("x 100 m") is
+# not a quantity.
+_UNIT = re.compile(
+    r"(?<![x.\d])(?<!x )\d+\s*(?:galon(?:es)?|gal|cubetas?|garrafas?|kilos?|kgs?|cajas?"
+    r"|paquetes?|metros?|mts?)\b"
+)
 _MUTATING = {
     Intent.CREATE_QUOTE,
     Intent.ADD_ITEMS,
@@ -46,6 +52,8 @@ class Guard:
             # "cuanto me sale si llevo 10 en vez de 20?" asks, it does not order
             return interp.model_copy(update={"intent": Intent.QUERY})
         if _TEMPORAL.search(t):
+            return None
+        if _UNIT.search(t):
             return None
         if _SWAP.search(t) or (_MISTAKE.search(t) and not _DIGIT.search(t)):
             return None

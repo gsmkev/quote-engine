@@ -86,3 +86,33 @@ def test_variant_swap_goes_to_review(text):
 def test_quantity_correction_passes(text):
     i = interp(Intent.UPDATE_QTY, item([ACR_TR], 5))
     assert guard(text, i) is i
+
+
+MAG = "ATEMGN-1L-001000"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "mandame 2 galones de tinta magenta",
+        "cotizame 20 metros de lona frontlit",
+        "2 cajas de tinta magenta",
+        "5 kg de tinta",
+    ],
+)
+def test_unsupported_unit_goes_to_review(text):
+    assert guard(text, interp(Intent.CREATE_QUOTE, item([MAG], 2))) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "tinta magenta 4 litros porfa",  # the SKU is 1L: 4 litros = 4 units
+        "cotizame 20 rollos de lona 3.20 x 100 metros",
+        "cotizame 2 lonas 3.20x100m",
+        "nesesito 4 planchas de trovicel de 5mm",
+    ],
+)
+def test_supported_units_pass(text):
+    i = interp(Intent.CREATE_QUOTE, item([MAG], 2))
+    assert guard(text, i) is i
