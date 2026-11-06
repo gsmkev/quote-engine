@@ -213,7 +213,7 @@ def test_extractor_supplied_qty_delta_is_dropped():
     got = guard("mejor que sean 5 las frontlit", interp(Intent.UPDATE_QTY, leaked))
     assert got is not None
     assert got.items[0].qty_delta is None
-    q = guard("hola", interp(Intent.QUERY, leaked))
+    q = guard("hola", interp(Intent.QUERY, leaked.model_copy(update={"qty": None})))
     assert q is not None
     assert q.items[0].qty_delta is None
 
@@ -727,3 +727,50 @@ def test_unparsed_relative_change_goes_to_review(text, intent):
 def test_absolute_changes_and_removals_still_pass(text, intent, it):
     i = interp(intent, it)
     assert guard(text, i) is i
+
+
+@pytest.mark.parametrize(
+    ("text", "intent"),
+    [
+        ("te encargo 10 lonas", Intent.QUERY),
+        ("van 10 lonas", Intent.NONE),
+        ("van 10 lonas", Intent.QUERY),
+    ],
+)
+def test_non_mutating_reading_with_a_quantity_goes_to_review(text, intent):
+    assert guard(text, interp(intent, item([FBT], 10))) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "mandenme 10 lonas",
+        "mandenme lonas",
+        "te encargo lonas frontlit",
+        "les pido lonas frontlit",
+        "les compro lonas frontlit",
+        "requiero lonas frontlit",
+        "requerimos lonas frontlit",
+        "enviame lonas frontlit",
+    ],
+)
+@pytest.mark.parametrize("intent", [Intent.NONE, Intent.QUERY])
+def test_new_order_verbs_read_as_no_action_go_to_review(text, intent):
+    assert guard(text, interp(intent)) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "mandenme 10 lonas frontlit 3.20x100",
+        "te encargo 10 rollos de mesh 3.20x100",
+        "enviame 10 rollos de mesh 3.20x100",
+        "requerimos 10 rollos de mesh 3.20x100",
+    ],
+)
+async def test_new_order_verbs_are_rules_adds(text):
+    from quote_engine.adapters.extractors.rules import RuleExtractor
+    from quote_engine.application.ports import MessageCtx
+
+    r = await RuleExtractor(CATALOG).interpret(MessageCtx("m", "c1", "cu", "inbound", text, []))
+    assert r is not None and r.intent == Intent.ADD_ITEMS, text

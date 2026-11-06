@@ -66,7 +66,8 @@ _VERBS = re.compile(
     r"\bcoti[zsc](?!acion|ar\b)\w*|\bne[cs]e[cs]i(?:to|tamos)\b"
     r"|\bmanda(?:me|nos)?\b|\bk?quiero\b|\bkiero\b|\bpon(?:e|le|les|me)?\b|\bagreg\w*"
     r"|\bsuma(?:le|les|me)?\b|\bllevo\b|\btambien\b|\bme pasas \d|\bpasame \d|\bdame\b"
-    r"|\bocup(?:o|amos)\b"
+    r"|\bocup(?:o|amos)\b|\bmand[ae]nme\b|\benvia(?:me|nos)\b|\bencargo\b|\bpido\b|\bcompro\b"
+    r"|\brequ(?:iero|erimos)\b"
 )
 _NUMBER_WORD = (
     r"uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince"
@@ -180,7 +181,7 @@ class Guard:
         hedged = _non_assertive(t, verbs)
         if interp.intent not in _MUTATING:
             ordered = verbs or (_SETS.search(t) and _DIGIT.search(t))
-            counted = hedged and any(it.qty is not None for it in interp.items)
+            counted = any(it.qty is not None for it in interp.items)  # "van 10 lonas"
             return None if ordered or counted else interp  # an order is never a silent no-op
         if hedged:
             return None  # a question/hedge read as a mutation: never apply, never downgrade
