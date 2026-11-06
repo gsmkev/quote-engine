@@ -239,6 +239,8 @@ async def test_ink_colour_is_not_a_bare_alias():
         ("cotizame 2 lonas blackout", CATALOG.with_attr("type", "blackout")),
         ("cotizame 2 lona mesh", MESHES),
         ("cotizame 2 lonas frontlit 3.20x100", {FBT}),
+        ("cotizame 2 laminados brillantes", {"ALAMBR-01-137050"}),
+        ("cotizame 2 laminados mates", {"ALAMMT-01-137050"}),
     ],
 )
 async def test_family_aliases(text, expected):
