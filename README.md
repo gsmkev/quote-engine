@@ -184,21 +184,21 @@ It is a deterministic net biased to review and cannot cover all of Spanish: an u
 
 **Why no Redis:** at this volume Postgres `SKIP LOCKED` is plenty, and a separate queue/dedupe store means two writes in two systems: a crash between them loses a message or applies it twice. I'd add a broker only at ~100× the load or when several consumers need the same events.
 
-**First thing with another week:** grow the golden set from real anonymized chats (123 hand-written cases cover the shapes I could think of, not the real distribution), add the LLM-classified `mood` field (§5) so the Guard stops being the only line of defence against non-assertive phrasing, then two-phase processing so the model call leaves the transaction.
+**First thing with another week:** grow the golden set from real anonymized chats (127 hand-written cases cover the shapes I could think of, not the real distribution), add the LLM-classified `mood` field (§5) so the Guard stops being the only line of defence against non-assertive phrasing, then two-phase processing so the model call leaves the transaction.
 
 **What I'd rip out:** `?wait=true`. It exists so the demo reads top to bottom, but it holds an HTTP request open for minutes while polling the database. A real webhook should get a 202, and clients should read `/v1/inbox/{seq}` or get a callback.
 
 ## 8. Eval results
 
-**123 golden cases** (`evals/golden.jsonl`): the 23 round-1 cases (challenge events, paraphrases, typos, numbers in words, traps, explicit quote ids) plus 100 round-2 cases in 13 categories (new catalog SKUs, typos/slang, units and quantity words, multi-item, corrections, partial removals, out-of-catalog, questions/chatter, references, several open quotes, voice-note transcripts, rep messages, cancels). Each case runs extraction + routing against fixed open quotes (and optional chat history); "routing" requires the right target **and** the right ops. "Wrong mutation" = an apply/new-quote whose ops differ from the expected ones; "safe miss" = review where an action or a no-op was expected. Six round-1 cases now expect `review` because the 39-SKU catalog made them genuinely ambiguous (justified case by case in `evals/FAILURES.md`); expected decisions were never edited to match outputs.
+**127 golden cases** (`evals/golden.jsonl`): the 23 round-1 cases (challenge events, paraphrases, typos, numbers in words, traps, explicit quote ids) plus 104 round-2 cases in 13 categories (new catalog SKUs, typos/slang, units and quantity words, multi-item, corrections, partial removals, out-of-catalog, questions/chatter, references, several open quotes, voice-note transcripts, rep messages, cancels). Each case runs extraction + routing against fixed open quotes (and optional chat history); "routing" requires the right target **and** the right ops. "Wrong mutation" = an apply/new-quote whose ops differ from the expected ones; "safe miss" = review where an action or a no-op was expected. Six round-1 cases now expect `review` because the 39-SKU catalog made them genuinely ambiguous (justified case by case in `evals/FAILURES.md`); expected decisions were never edited to match outputs.
 
-Final runs, 2-core ARM64 CPU VM, no GPU, Qwen3-4B-Instruct-2507 Q4_K_M:
+Final runs, 2-core ARM64 CPU VM, no GPU, Qwen3-4B-Instruct-2507 Q4_K_M. `rules` covers all 127 cases; the `cascade`/`llm` full runs predate the last 4 cases (relative changes and order verbs), which were run with `--only` (results in `evals/FAILURES.md`), so those two rows are over the first 123:
 
 | Mode | intent acc | SKU-set acc | routing exact | solved by rules | p50 | p95 | review rate | wrong mutations (harness) | of which change state | safe misses | run time |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `cascade` (rules → LLM) | 72% | 85% | **86%** | 41% | 7.3 s | 152.8 s | 46% | 1 | **0** | 16 | ~1 h 15 min |
 | `llm` only (ablation) | 76% | 80% | 80% | 0% | 40.2 s | 157.8 s | 48% | 2 | **1** | 21 | ~2 h 05 min |
-| `rules` only | 37% | 63% | 62% | 41% | 0.1 ms | 0.3 ms | 71% | 0 | 0 | 47 | < 1 min |
+| `rules` only | 37% | 63% | 61% | 42% | 0.1 ms | 0.3 ms | 70% | 0 | 0 | 49 | < 1 min |
 
 Per category — routing exact / wrong mutations (harness) / safe misses:
 
@@ -207,9 +207,9 @@ Per category — routing exact / wrong mutations (harness) / safe misses:
 | legacy (round 1) | 23 | 100% / 0 / 0 | 96% / 0 / 1 | 74% / 0 / 6 |
 | catalog_new | 9 | 100% / 0 / 0 | 78% / 1 / 1 | 100% / 0 / 0 |
 | typos_slang | 8 | 100% / 0 / 0 | 88% / 0 / 1 | 75% / 0 / 2 |
-| units_quantities | 8 | 88% / 0 / 1 | 88% / 0 / 1 | 12% / 0 / 7 |
+| units_quantities | 8 (rules 11) | 88% / 0 / 1 | 88% / 0 / 1 | 27% / 0 / 8 |
 | multi_item | 7 | 86% / 0 / 1 | 86% / 0 / 1 | 71% / 0 / 2 |
-| corrections | 7 | 57% / 1 / 2 | 57% / 1 / 2 | 29% / 0 / 5 |
+| corrections | 7 (rules 8) | 57% / 1 / 2 | 57% / 1 / 2 | 25% / 0 / 6 |
 | partial_remove | 6 | 67% / 0 / 2 | 67% / 0 / 2 | 33% / 0 / 4 |
 | out_of_catalog | 16 | 94% / 0 / 1 | 94% / 0 / 1 | 88% / 0 / 2 |
 | questions_noop | 8 | 62% / 0 / 3 | 62% / 0 / 3 | 12% / 0 / 7 |
@@ -222,7 +222,7 @@ Per category — routing exact / wrong mutations (harness) / safe misses:
 Reading:
 
 * **The cascade is the production mode and the best one**: 86% exact routing, and its only "wrong mutation" changes nothing (see §9). It skips the model for 41% of messages. 0 out-of-catalog products mapped to a SKU, 0 silent misses.
-* **Rules alone never mutated wrongly** (0 in 123) but give up on 71% of messages: they are a cheap, safe first stage, not a product.
+* **Rules alone never mutated wrongly** (0 in 127) but give up on 70% of messages: they are a cheap, safe first stage, not a product.
 * **The LLM alone is worse and slower** than the cascade, and it is the only mode with a state-changing wrong mutation and a silent miss. The rules catch exactly the cases where the small model narrows or drops things.
 * **Latency is CPU-bound.** p50 7.3 s for the cascade is the mix of 0 ms rules hits and ~20–60 s LLM calls; p95 ~150 s is long messages with history on a 2-core CPU (the first call after a model load was ~275 s). A GPU is the first fix (§7). Round 1 measured p95 ~24–27 s with a 4-SKU prompt; the family pre-filter is what keeps the 39-SKU prompt usable at all (54–205 s per call without it).
 * Round-1 numbers (23 cases, 4 SKUs: cascade 96%, llm 91%, rules 48% routing) are not comparable: different catalog, six re-ruled cases, and 100 harder cases.

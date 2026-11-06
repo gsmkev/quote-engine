@@ -1,6 +1,6 @@
 # Golden-set failures (final round-2 runs)
 
-Every case whose routing decision differs from the human expectation, per mode, from the canonical `results-<mode>-koeti-lab.json` (123 cases, 2-core ARM64 CPU VM, Qwen3-4B-Instruct-2507 Q4_K_M). Classes:
+Every case whose routing decision differs from the human expectation, per mode, from the canonical `results-<mode>-koeti-lab.json` (`rules`: 127 cases; `cascade`/`llm`: the first 123 — the 4 cases added after the final review were run with `--only`, see below; 2-core ARM64 CPU VM, Qwen3-4B-Instruct-2507 Q4_K_M). Classes:
 
 * **wrong mutation** — applied/created something that leaves the quote in a different state than expected;
 * **extra op, no state change** — the ops differ from the expected ones, but the resulting quote is identical (e.g. a `set_qty` to the quantity the line already has: the aggregate emits no event). Counted as "wrong apply/new" by the harness, which compares ops exactly;
@@ -12,7 +12,7 @@ Every case whose routing decision differs from the human expectation, per mode, 
 
 | mode | failing | wrong mutation | extra op, no state change | out-of-catalog misassigned | silent miss | safe miss |
 |---|---|---|---|---|---|---|
-| `rules` | 47 | 0 | 0 | 0 | 0 | 47 |
+| `rules` | 49 | 0 | 0 | 0 | 0 | 49 |
 | `cascade` | 17 | 0 | 1 (co-eran-15) | 0 | 0 | 16 |
 | `llm` (ablation) | 24 | **1 (cn-lona-250-length-open)** | 1 (co-eran-15) | 0 | **1 (rf-vez-pasada)** | 21 |
 
@@ -21,6 +21,22 @@ Every case whose routing decision differs from the human expectation, per mode, 
 **Open silent miss (LLM-only mode):** `rf-vez-pasada` — "lo mismo que la vez pasada porfa" read as `none` by the LLM → no-op instead of review (the Guard checks temporal references only on mutating intents).
 
 LLM calls that still failed validation after Instructor's 2 retries (`sku_candidates must be non-empty iff in_catalog`): 2 in the cascade run, 1 in the llm run. Each went to review (`extraction_failed`) — the contract validator doing its job, not a mutation.
+
+## Final-review fixes: targeted `--only` cascade run
+
+After the final review the Guard learned to read relative changes in words and phrasings ("quitale dos", "5 lonas menos", "otras 5"), to review relative cues it cannot read, to review quantities on `query`/`none` readings, and new order verbs (`mandenme`, `te encargo`, `requiero`, `enviame`, …). The 4 new cases plus every golden case touching relative cues or order verbs were run in `cascade` with `--only` (14 cases; full cascade/llm not re-run):
+
+| case | expected | got | source | |
+|---|---|---|---|---|
+| uq-quitale-dos | `apply:Q-001[set_qty:ALFBTC-013-320100=18]` | same | llm | ok |
+| co-5-menos | `apply:Q-001[set_qty:ALFBTC-013-320100=15]` | same | llm | ok |
+| uq-te-encargo | `new[ALMCLC-0909-320100=10]` | same | rules | ok |
+| uq-mandenme | `new[ALFBTC-013-320100=10]` | same | rules | ok |
+| mi-more-micro-plus-ink, pr-not-in-quote, pr-quitale-2, pr-which-vinil, oc-remove-unknown, rf-history-esas, mq-remove-both-have | as expected | same | | ok |
+| pr-quita-vinil, pr-sacame-tintas | remove | `review` | llm | safe miss (known, see cascade section) |
+| vn-new-order | `new[ALFBTC-013-320100=15,AVMICS-1A-137050=4]` | `review` → after fix `new[…]` | llm | the first version of the relative catch-all read "1.37 eh y nada mas" as a cue (safe miss); fixed (dimension digits and "nada mas" are not cues), re-run alone: ok |
+
+14 cases: 0 wrong mutations, 12/14 exact after the vn-new-order fix, 2 known safe misses.
 
 ## Golden rulings (controller, round 2)
 
@@ -35,9 +51,9 @@ Six legacy cases changed `expected.decision` to `review`: the expanded catalog m
 | para-agrega-acrilicos | "acrilicos blancos" with no thickness: 2/3/5mm; Q-001 has no acrylic line to intersect. |
 | words-dos-acrilicos | same as above ("dos acrilicos blancos", no thickness, no acrylic line in Q-001). |
 
-## Mode `rules` — 47 / 123 failing
+## Mode `rules` — 49 / 127 failing
 
-wrong mutation: 0, extra op, no state change: 0, out-of-catalog misassigned: 0, silent miss: 0, safe miss: 47
+wrong mutation: 0, extra op, no state change: 0, out-of-catalog misassigned: 0, silent miss: 0, safe miss: 49
 
 | case | category | text | expected | got | source | class | status |
 |---|---|---|---|---|---|---|---|
@@ -88,6 +104,8 @@ wrong mutation: 0, extra op, no state change: 0, out-of-catalog misassigned: 0, 
 | ca-by-content | cancel | cancela la cotizacion de las tintas | `apply:Q-002[cancel]` | `review` | None | safe miss | known — needs a cancel resolved by content (rules give up; the LLM's item-less cancel naming 'las tintas' is refused by the Guard) |
 | ca-partial | cancel | cancela el microperforado nomas, lo demas sigue | `apply:Q-001[remove:AVMICS-1A-137050]` | `review` | None | safe miss | known — needs cancel + product mapped to a line removal; review by design |
 | ca-negated | cancel | no no, no cancelen nada, seguimos con la cotizacion | `noop` | `review` | None | safe miss | known — needs a rules NONE intent for negated cancels |
+| uq-quitale-dos | units_quantities | quitale dos a las frontlit | `apply:Q-001[set_qty:ALFBTC-013-320100=18]` | `review` | None | safe miss | known — rules have no relative intent; the Guard turns the LLM's reading into a delta |
+| co-5-menos | corrections | 5 lonas frontlit menos | `apply:Q-001[set_qty:ALFBTC-013-320100=15]` | `review` | None | safe miss | known — rules have no relative intent; the Guard turns the LLM's reading into a delta |
 
 ## Mode `cascade` — 17 / 123 failing
 

@@ -203,7 +203,7 @@ With two open quotes, *"mejor cancelalo"* has no content signal.
 | Durability / restart | All state in Postgres; worker and API are stateless; a crash mid-message rolls back and the row is retried |
 | Auditability | `quote_events` (append-only, with cause) + `inbox.decision` trace: extractor source, interpretation JSON, router scores, decision, latency |
 | Testability | Pure router and aggregate; replay extractor; testcontainers for real-Postgres acceptance tests |
-| Measurability | Golden-set evals (123 cases, 14 categories): intent / SKU / routing accuracy, % solved without the LLM, p50/p95 latency, review rate, wrong mutations, safe misses, per-category table; every failure classified in `evals/FAILURES.md` |
+| Measurability | Golden-set evals (127 cases, 14 categories): intent / SKU / routing accuracy, % solved without the LLM, p50/p95 latency, review rate, wrong mutations, safe misses, per-category table; every failure classified in `evals/FAILURES.md` |
 
 ## 12. Scaling to 1,000 conversations/day — what breaks first
 
