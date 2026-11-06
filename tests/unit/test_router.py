@@ -420,6 +420,14 @@ DEFAULT_CASES = [
         Apply("Q-002", [LinkConversation("411"), Cancel()]),
     ),
     (
+        # "tienen stock de sintra 10mm?" with no quote open: nothing to answer against
+        "query-no-open-quotes",
+        interp(Intent.QUERY, [mention([MIC])]),
+        "411",
+        [],
+        NoOp(),
+    ),
+    (
         # "cancela el microperforado nomas": naming one line of several is not a whole cancel
         "cancel-names-part-of-quote",
         interp(Intent.CANCEL, [mention([MIC])]),

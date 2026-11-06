@@ -129,6 +129,9 @@ def route(
                 q = linked[0] if len(linked) == 1 else None
             return Review("unknown_product", [q.id] if q else ids, None)
 
+    if intent is Intent.QUERY and not open_quotes:
+        return NoOp()  # a question with no quote to read from changes nothing
+
     if intent is Intent.CREATE_QUOTE or (
         intent is Intent.ADD_ITEMS and (interp.separate or not open_quotes)
     ):
