@@ -29,6 +29,8 @@ _UNIT = re.compile(
     r"(?<![x.\d])(?<!x )\d+\s*(?:galon(?:es)?|gal|cubetas?|garrafas?|kilos?|kgs?|cajas?"
     r"|paquetes?|metros?|mts?)\b"
 )
+_ADDS = re.compile(r"\bagrega\w*|\bsuma\w*|\btambien\b")
+_SETS = re.compile(r"\bsean\b|\bcambia\w*|\ben vez de\b|\bdeja\w* en\b")
 _MUTATING = {
     Intent.CREATE_QUOTE,
     Intent.ADD_ITEMS,
@@ -53,7 +55,7 @@ class Guard:
             return interp.model_copy(update={"intent": Intent.QUERY})
         if _TEMPORAL.search(t):
             return None
-        if _UNIT.search(t):
+        if _UNIT.search(t) or (_ADDS.search(t) and _SETS.search(t)):
             return None
         if _SWAP.search(t) or (_MISTAKE.search(t) and not _DIGIT.search(t)):
             return None

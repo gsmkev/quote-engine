@@ -116,3 +116,21 @@ def test_unsupported_unit_goes_to_review(text):
 def test_supported_units_pass(text):
     i = interp(Intent.CREATE_QUOTE, item([MAG], 2))
     assert guard(text, i) is i
+
+
+ACR = "ARACBL-03-122244"
+
+
+def test_mixed_add_and_set_goes_to_review():
+    # one intent per message: "add 2 X and set Y to 10" cannot be expressed safely
+    i = interp(Intent.ADD_ITEMS, item([ACR], 2), item(FRONTLITS, 10))
+    assert guard("agrega 2 acrilicos blancos de 3mm y que las lonas frontlit sean 10", i) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["sumale 2 rollos mas de microperforado y agrega 3 tintas negras", "agregale 2 frontlit"],
+)
+def test_plain_add_passes(text):
+    i = interp(Intent.ADD_ITEMS, item([ACR], 2))
+    assert guard(text, i) is i
