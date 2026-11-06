@@ -103,13 +103,12 @@ class Guard:
         if interp is None:
             return None
         t = norm(text)
+        orders = _ORDER.search(t) or _ADDS.search(t)
         if interp.intent not in _MUTATING:
-            ordered = _ORDER.search(t) or _ADDS.search(t) or _SETS.search(t)
-            if ordered and _DIGIT.search(t) and "?" not in t and not _PRICE_Q.search(t):
+            if (orders or _SETS.search(t)) and _DIGIT.search(t) and "?" not in t:
                 return None
             return interp
-        asks = _ASK.search(t) and not (_ORDER.search(t) or _ADDS.search(t))
-        if _PRICE_Q.search(t) or asks:
+        if (_PRICE_Q.search(t) or _ASK.search(t)) and not orders:
             # "cuanto me sale si llevo 10 en vez de 20?" asks, it does not order
             return interp.model_copy(update={"intent": Intent.QUERY})
         if _TEMPORAL.search(t):

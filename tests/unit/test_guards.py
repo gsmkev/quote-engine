@@ -46,10 +46,9 @@ async def test_rules_output_is_guarded():
     from quote_engine.adapters.extractors.rules import RuleExtractor
     from quote_engine.application.ports import MessageCtx
 
-    ctx = MessageCtx("m1", "c1", "cust", "inbound", "cotizame 5 lonas frontlit, cuanto me sale", [])
-    r = await RuleExtractor(CATALOG).interpret(ctx)
-    assert r is not None
-    assert r.intent == Intent.QUERY
+    text = "cotizame 5 lonas frontlit como la vez pasada"
+    ctx = MessageCtx("m1", "c1", "cust", "inbound", text, [])
+    assert await RuleExtractor(CATALOG).interpret(ctx) is None
 
 
 MESH = "ALMCLC-0909-320100"
@@ -208,6 +207,22 @@ def test_relative_increase_never_reaches_a_new_line():
     got = guard("si, ponle 2 mas de esas", interp(Intent.UPDATE_QTY, item([CYAN], 2)))
     assert got is not None
     assert isinstance(route(got, "c1", []), Review)
+
+
+@pytest.mark.parametrize(
+    ("text", "intent"),
+    [
+        ("cotizame 10 rollos de lona frontlit 3.20x100 con precio", Intent.CREATE_QUOTE),
+        ("necesito 5 rollos de mesh 3.20x100, me das precio", Intent.ADD_ITEMS),
+    ],
+)
+def test_order_asking_for_price_still_orders(text, intent):
+    i = interp(intent, item([FBT], 10))
+    assert guard(text, i) is i
+
+
+def test_order_asking_for_price_read_as_query_goes_to_review():
+    assert guard("cotizame 10 rollos de lona frontlit con precio", interp(Intent.QUERY)) is None
 
 
 @pytest.mark.parametrize(
