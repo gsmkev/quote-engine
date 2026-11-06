@@ -38,8 +38,7 @@ def test_passes_through_none_and_non_mutating():
 )
 def test_questions_never_mutate(text):
     got = guard(text, interp(Intent.UPDATE_QTY, item(FRONTLITS, 10, 20)))
-    assert got is not None
-    assert got.intent == Intent.QUERY
+    assert got is None or got.intent == Intent.QUERY  # review when an order verb is present
 
 
 async def test_rules_output_is_guarded():
@@ -264,7 +263,7 @@ def test_order_read_as_no_action_goes_to_review(text, intent):
 
 @pytest.mark.parametrize(
     "text",
-    ["me cotizas 3 lonas?", "gracias!", "cuanto sale cotizar 3 lonas", "tienen sintra de 10mm?"],
+    ["gracias!", "cuanto sale cotizar 3 lonas", "tienen sintra de 10mm?"],
 )
 def test_questions_and_chatter_stay_non_actions(text):
     i = interp(Intent.QUERY)
@@ -317,21 +316,119 @@ def test_price_or_availability_question_never_mutates_even_with_order_verbs(text
     assert got is None or got.intent == Intent.QUERY
 
 
-def test_price_question_without_order_verb_is_a_query():
-    got = guard("cuanto me sale si llevo 10 frontlit?", interp(Intent.UPDATE_QTY, item([FBT], 10)))
-    assert got is not None
-    assert got.intent == Intent.QUERY
-
-
 def test_unknown_product_question_with_order_is_not_a_silent_noop():
     i = interp(Intent.ADD_ITEMS, ItemMention(mention="tela", sku_candidates=[], in_catalog=False))
     assert guard("tienen tela canvas? necesito 5 rollos", i) is None
 
 
-def test_plain_question_request_is_unchanged():
-    i = interp(Intent.ADD_ITEMS, item([FBT], 3))
-    assert guard("me cotizas 3 lonas?", i) is i
+def test_question_shaped_request_goes_to_review():
+    # ruling round 3: a "?" never mutates; with an order verb it goes to a human
+    assert guard("me cotizas 3 lonas?", interp(Intent.ADD_ITEMS, item([FBT], 3))) is None
 
 
 def test_relative_change_with_a_later_negator_goes_to_review():
     assert guard("ponle 2 mas, no 5", interp(Intent.UPDATE_QTY, item([FBT], 2))) is None
+
+
+MUTATING_READINGS = [
+    (Intent.UPDATE_QTY, item([FBT], 10, 20)),
+    (Intent.ADD_ITEMS, item([MESH], 5)),
+    (Intent.CREATE_QUOTE, item([FBT], 10)),
+]
+NON_ASSERTIVE = [
+    "me cotizas 3 lonas? hay que entregarlas el lunes",
+    "cuanto me saldrian 10 frontlit?",
+    "cuanto costarian 10 en vez de 20?",
+    "cuanto es si quiero 10 en vez de 20?",
+    "y si quiero 10 en vez de 20, cuanto?",
+    "cuanto quedaria si le pongo 2 mas?",
+    "a como sale si quiero 10?",
+    "que costo tendria si son 10?",
+    "y si agrego 5 mesh, en cuanto queda?",
+    "y si sumo 5 mesh?",
+    "cuanto me sale si llevo 10 frontlit",
+]
+NEGATED = [
+    "no me cambies a 10",
+    "no quiero 10, deja los 20",
+    "todavia no agregues los 5 mesh",
+    "ni se te ocurra agregar 5 mesh",
+    "aun no cotices 10 frontlit",
+    "cotizame 10 frontlit sin ojillos",
+]
+
+
+@pytest.mark.parametrize(("intent", "it"), MUTATING_READINGS)
+@pytest.mark.parametrize("text", NON_ASSERTIVE + NEGATED)
+def test_questions_hypotheticals_and_negations_never_mutate(text, intent, it):
+    from quote_engine.domain.router import Apply, NewQuote, QuoteView, route
+
+    got = guard(text, interp(intent, it))
+    assert got is None or got.intent in (Intent.QUERY, Intent.NONE)
+    for quotes in ([], [QuoteView("Q-001", {FBT: 20, MESH: 5}, frozenset({"c1"}))]):
+        if got is not None:
+            d = route(got, "c1", quotes)
+            assert not isinstance(d, NewQuote)
+            assert not (isinstance(d, Apply) and len(d.ops) > 1)  # link-only at most
+
+
+@pytest.mark.parametrize("text", NON_ASSERTIVE[1:3])
+def test_question_without_order_verb_is_a_query(text):
+    got = guard(text, interp(Intent.UPDATE_QTY, item([FBT], 10, 20)))
+    assert got is not None
+    assert got.intent == Intent.QUERY
+
+
+@pytest.mark.parametrize(
+    "text",
+    NON_ASSERTIVE[:1] + [t for t in NEGATED if "cambies" not in t],  # no verb there
+)
+@pytest.mark.parametrize("intent", [Intent.QUERY, Intent.NONE])
+def test_order_verb_read_as_no_action_goes_to_review(text, intent):
+    assert guard(text, interp(intent)) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "intent", "it"),
+    [
+        ("Oye de las lonas mejor que sean 15, no 20", Intent.UPDATE_QTY, item(FRONTLITS, 15, 20)),
+        ("mejor que sean quince las frontlit, no veinte", Intent.UPDATE_QTY, item([FBT], 15)),
+        ("corrijo: son 8 rollos de blackout, no 6", Intent.UPDATE_QTY, item([FBT], 8, 6)),
+        ("no eran 3 eran 5 los acrilicos negros", Intent.UPDATE_QTY, item([ACR], 5, 3)),
+        ("ya no quiero el microperforado", Intent.REMOVE_ITEM, item([MICS_152])),
+        ("ya no lo quiero", Intent.CANCEL, item([FBT])),
+        (
+            "y aparte cotizame 2 acrilicos blancos de 3mm porfa",
+            Intent.ADD_ITEMS,
+            item([ACR], 2),
+        ),
+        (
+            "perfecto. y de los acrilicos que cotizó Alice, mejor que sean 4",
+            Intent.UPDATE_QTY,
+            item([ACR], 4),
+        ),
+        (
+            "cotizame 10 rollos de lona frontlit 3.20x100 con precio",
+            Intent.CREATE_QUOTE,
+            item([FBT], 10),
+        ),
+    ],
+)
+def test_assertive_orders_and_corrections_still_pass(text, intent, it):
+    i = interp(intent, it)
+    assert guard(text, i) is i
+
+
+@pytest.mark.parametrize("text", ["mejor cancelalo"])
+def test_bare_cancel_still_passes(text):
+    i = interp(Intent.CANCEL)
+    assert guard(text, i) is i
+
+
+def test_challenge_question_stays_a_query():
+    text = (
+        "Buen dia, soy Mario de compras de ACME. Alice me pasó con ustedes, "
+        "me confirmas qué lleva la cotización de las lonas?"
+    )
+    i = interp(Intent.QUERY, item(FRONTLITS))
+    assert guard(text, i) is i

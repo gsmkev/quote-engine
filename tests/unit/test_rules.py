@@ -145,11 +145,9 @@ async def test_extract_conversation_is_none():
     assert await extractor.extract_conversation(ConversationCtx("c1", "cust", [])) is None
 
 
-async def test_cotizas_question_is_add():
-    r = await extractor.interpret(ctx("me cotizas 3 lonas?"))
-    assert r is not None
-    assert r.intent == Intent.ADD_ITEMS
-    assert r.items[0].qty == 3
+async def test_cotizas_question_goes_to_review():
+    # a "?" never mutates (guard ruling, round 3): rules read an add, the guard rejects it
+    assert await extractor.interpret(ctx("me cotizas 3 lonas?")) is None
 
 
 FRONTLITS = CATALOG.with_attr("type", "frontlit")

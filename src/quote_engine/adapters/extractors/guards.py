@@ -34,15 +34,30 @@ def is_bare_cancel(t: str) -> bool:
     return all(w in _CANCEL_FILLER for w in rest)
 
 
-# "cuanto me sale si...", "cuanto cuesta...": a question even without "?"
-_PRICE_SHAPE = re.compile(
-    r"\bcuanto (?:me |nos |te )?(?:sale|salen|saldria|cuesta|cuestan|costaria|cobran|vale|valen"
-    r"|seria|serian)\b"
+# Non-assertive messages (questions, hypotheticals) never mutate. Broad on purpose: a miss here
+# costs a review, a false "assertive" costs a wrong quote.
+_NON_ASSERTIVE = re.compile(
+    r"\?|\bcuanto\b|\ba como\b|\bque costo\b|\bprecios?\b|\by si\b"
+    r"|\bsi (?:quiero|pongo|agrego|llevo|sumo|son|fueran|le pongo)\b|\bsaldr\w*|\bcostar\w*"
+    r"|\bquedar(?:ia|ian)\b"
 )
-_PRICE_Q = re.compile(
-    r"\bcuanto (?:me |nos )?(?:sale|salen|saldria|cuesta|cuestan|costaria|seria|serian|cobran)\b"
-    r"|\bprecios?\b|\bme sale\b"
+# "cotizame 10 rollos con precio": asking for the price alongside an order keeps it an order
+_PRICE_ASIDE = re.compile(r"\b(?:con|me das|me pasas|dame|y)\s+(?:el\s+|su\s+)?precios?\b")
+# Order/add verbs: with one present, a non-assertive or no-action reading goes to a human.
+_VERBS = re.compile(
+    r"\bcoti[zsc](?!acion|ar\b)\w*|\bne[cs]e[cs]i(?:to|tamos)\b"
+    r"|\bmanda(?:me|nos)?\b|\bk?quiero\b|\bkiero\b|\bpon(?:e|le|les|me)?\b|\bagreg\w*"
+    r"|\bsuma(?:le|les|me)?\b|\bllevo\b|\btambien\b"
 )
+_NUMBER_WORD = (
+    r"uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince"
+    r"|dieci\w+|veinte|veinti\w+|treinta|cuarenta|cincuenta|cien"
+)
+# "sean 15, no 20", "son 8, no 6", "no eran 3 eran 5": a previous quantity, not a negation
+_PREV_QTY = re.compile(rf"\bno\s+(?:(?:de|eran?|son|sean)\s+)?(?:\d|(?:{_NUMBER_WORD})\b)")
+# "ya no quiero el X" is how a removal/cancel is said, not a negated order
+_REMOVAL = re.compile(r"\b(?:ya )?no (?:lo |la |los |las |me )?(?:quiero|necesito)\b")
+_NEGATED = re.compile(r"\b(?:no|ni|sin)\b")
 # "la de ayer", "lo mismo que la vez pasada": a quote we cannot see; never guess it
 _TEMPORAL = re.compile(
     r"\b(?:ayer|antier|anteayer|vez pasada|otra vez|otro dia|semana pasada|mes pasado"
@@ -67,14 +82,6 @@ _LESS = re.compile(rf"\b(?:quit|rest|baj|descuent|reduc)\w* (\d+)\b|\b(\d+) {_CO
 _MORE = re.compile(rf"\b(\d+) {_COUNT_UNIT}mas\b")
 _NEGATOR = re.compile(r"\b(?:no|ni|sin)\b")
 _TAKE_AWAY = re.compile(r"\b(?:quit|sac|rest)\w*")
-# Order verbs (typos included): with a quantity and no question, a "nothing to do" reading is
-# a silent miss.
-_ORDER = re.compile(
-    r"\bcoti[zs]a(?:me|nos)\b|\bne[cs]e[cs]i(?:to|tamos)\b|\bmanda(?:me|nos)\b|\bk?quiero\b"
-    r"|\bkiero\b|\bpon(?:le|me)\b"
-)
-# "acrilico dorado manejan?": asking whether we carry something is not an order
-_ASK = re.compile(r"\b(?:manejan|tienen|venden|hay|trabajan|disponibles?|stock)\b")
 _MUTATING = {
     Intent.CREATE_QUOTE,
     Intent.ADD_ITEMS,
@@ -82,6 +89,19 @@ _MUTATING = {
     Intent.REMOVE_ITEM,
     Intent.CANCEL,
 }
+
+
+def _non_assertive(t: str, verbs: bool) -> bool:
+    if verbs and "?" not in t:
+        t = _PRICE_ASIDE.sub(" ", t)
+    return bool(_NON_ASSERTIVE.search(t))
+
+
+def _negated(t: str, intent: Intent) -> bool:
+    t = _PREV_QTY.sub(" ", t)
+    if intent in (Intent.REMOVE_ITEM, Intent.CANCEL):
+        t = _REMOVAL.sub(" ", t)
+    return bool(_NEGATED.search(t))
 
 
 class Guard:
@@ -112,17 +132,14 @@ class Guard:
             items = [it.model_copy(update={"qty_delta": None}) for it in interp.items]
             interp = interp.model_copy(update={"items": items})
         t = norm(text)
-        orders = _ORDER.search(t) or _ADDS.search(t)
+        verbs = bool(_VERBS.search(t))
         if interp.intent not in _MUTATING:
-            if (orders or _SETS.search(t)) and _DIGIT.search(t) and "?" not in t:
-                return None
-            return interp
-        price = _PRICE_Q.search(t)
-        asked = "?" in t and (price or _ASK.search(t))
-        if _PRICE_SHAPE.search(t) or asked or (price and not orders):
-            # A price/availability question never mutates. With an order verb in it too, which
-            # part is the order is a guess: review rather than risk a silent noop.
-            return None if orders else interp.model_copy(update={"intent": Intent.QUERY})
+            ordered = verbs or (_SETS.search(t) and _DIGIT.search(t))
+            return None if ordered else interp  # an order read as nothing to do: never silent
+        if _non_assertive(t, verbs):
+            return None if verbs else interp.model_copy(update={"intent": Intent.QUERY})
+        if _negated(t, interp.intent):
+            return None
         if _TEMPORAL.search(t):
             return None
         whole = is_bare_cancel(t) or _WHOLE_CANCEL.search(t)
