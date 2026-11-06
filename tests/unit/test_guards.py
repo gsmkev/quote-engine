@@ -801,3 +801,16 @@ def test_guard_rejections_are_logged_with_a_rule_name(text, intent, it, rule):
     with capture_logs() as logs:
         assert guard(text, interp(intent, *([it] if it else []))) is None
     assert [(e["event"], e["rule"]) for e in logs] == [("guard_rejected", rule)]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "cotizame lo del antepasado",
+        "mandame lo de siempre",
+        "quiero el mismo de la otra vez",
+        "dame 5 como la otra vez",
+    ],
+)
+def test_more_temporal_references_go_to_review(text):
+    assert guard(text, interp(Intent.CREATE_QUOTE, item([MESH], 5))) is None

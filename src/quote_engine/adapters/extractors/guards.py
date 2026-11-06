@@ -92,7 +92,7 @@ _NEGATED = re.compile(r"\b(?:no|ni|sin|tampoco|nunca|jamas|olvid(?:a|ate|alo|ala
 # "la de ayer", "lo mismo que la vez pasada": a quote we cannot see; never guess it
 _TEMPORAL = re.compile(
     r"\b(?:ayer|antier|anteayer|vez pasada|otra vez|otro dia|semana pasada|mes pasado"
-    r"|la anterior|el anterior)\b"
+    r"|la anterior|el anterior|antepasado|lo de siempre)\b"
 )
 # "era el blanco no el transparente": a variant swap, not a quantity change
 _SWAP = re.compile(
