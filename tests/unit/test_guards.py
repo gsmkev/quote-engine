@@ -64,3 +64,25 @@ def test_temporal_reference_goes_to_review(text):
 def test_temporal_question_is_untouched():
     q = interp(Intent.QUERY)
     assert guard("hacen envios? la otra vez tardaron", q) is q
+
+
+ACR_TR = "ARACTR-03-122244"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "me equivoque, era el blanco no el transparente 🙈",
+        "ay perdon el vinil mate era de 1.37 no de 1.52",
+        "me equivoque de producto",
+    ],
+)
+def test_variant_swap_goes_to_review(text):
+    # the contract cannot say "replace line X by Y"; set_qty on the old line would be wrong
+    assert guard(text, interp(Intent.UPDATE_QTY, item([ACR_TR], 4))) is None
+
+
+@pytest.mark.parametrize("text", ["perdon, eran 15 no 12", "no eran 3 eran 5 los acrilicos negros"])
+def test_quantity_correction_passes(text):
+    i = interp(Intent.UPDATE_QTY, item([ACR_TR], 5))
+    assert guard(text, i) is i
