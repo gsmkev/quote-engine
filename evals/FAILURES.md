@@ -2,6 +2,19 @@
 
 Every case whose routing decision differs from the human expectation, per mode. Classification: **wrong mutation** (applied/created something other than expected), **out-of-catalog misassigned** (a product we don't sell was mapped to a catalog SKU or mutated), **safe miss** (went to review instead of the expected action), **silent miss** (noop where an action or review was expected).
 
+## Golden rulings (controller, round 2)
+
+Six legacy cases changed `expected.decision` to `review`: the expanded catalog made each mention genuinely ambiguous (several SKUs, no single family default, no line in the quote to intersect), so picking one SKU would be a guess.
+
+| case | why `review` |
+|---|---|
+| typo-lonsa | "lonsa frontlit" with no size: 6 Frontlit widths/lengths, all family defaults, so no single default; new quote has nothing to intersect. |
+| para-new-mesh | "mesh 9x9" matches both mesh widths (3.20x100 and 2.50x100); mesh has no default. |
+| words-diez-mesh | "lona mesh" with no size: 2 mesh SKUs, no default. |
+| typo-acrilcos | "acrilicos blancos" with no thickness: 2/3/5mm, no default. |
+| para-agrega-acrilicos | "acrilicos blancos" with no thickness: 2/3/5mm; Q-001 has no acrylic line to intersect. |
+| words-dos-acrilicos | same as above ("dos acrilicos blancos", no thickness, no acrylic line in Q-001). |
+
 ## Mode `rules` — 67 / 123 failing
 
 wrong mutation: 1, out-of-catalog misassigned: 1, safe miss: 65, silent miss (noop instead of action): 0
