@@ -774,3 +774,30 @@ async def test_new_order_verbs_are_rules_adds(text):
 
     r = await RuleExtractor(CATALOG).interpret(MessageCtx("m", "c1", "cu", "inbound", text, []))
     assert r is not None and r.intent == Intent.ADD_ITEMS, text
+
+
+@pytest.mark.parametrize(
+    ("text", "intent", "it", "rule"),
+    [
+        ("cuanto me saldrian 10 frontlit?", Intent.UPDATE_QTY, item([FBT], 10), "hedged"),
+        ("cotizame 10 frontlit", Intent.QUERY, item([FBT]), "ordered"),
+        ("van 10 lonas", Intent.NONE, item([FBT], 10), "counted"),
+        ("no me cambies a 10", Intent.UPDATE_QTY, item([FBT], 10), "negated"),
+        ("lo mismo que ayer", Intent.UPDATE_QTY, item([FBT], 10), "temporal"),
+        ("cancela lo del papel", Intent.CANCEL, None, "cancel_unnamed"),
+        ("one way 1.52, 2 rollos", Intent.CREATE_QUOTE, item([MATE_152], 2, mention="one way 1.52"),
+         "off_alias"),
+        ("mandame 2 galones de tinta", Intent.CREATE_QUOTE, item([MAG], 2), "unit"),
+        ("agrega 2 y que sean 10", Intent.ADD_ITEMS, item([FBT], 2), "add_and_set"),
+        ("en vez de el blanco mejor el transparente", Intent.UPDATE_QTY, item([ACR], 1), "swap"),
+        ("me equivoque de producto", Intent.UPDATE_QTY, item([ACR], 1), "mistake"),
+        ("ponle 10 rollos de mesh mas", Intent.UPDATE_QTY, item([MESH], 10), "relative"),
+        ("quitale 2 y ponle 3 mas", Intent.UPDATE_QTY, item([FBT], 2), "relative"),
+    ],
+)  # fmt: skip
+def test_guard_rejections_are_logged_with_a_rule_name(text, intent, it, rule):
+    from structlog.testing import capture_logs
+
+    with capture_logs() as logs:
+        assert guard(text, interp(intent, *([it] if it else []))) is None
+    assert [(e["event"], e["rule"]) for e in logs] == [("guard_rejected", rule)]

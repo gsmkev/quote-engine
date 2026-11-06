@@ -6,9 +6,13 @@ add a mutation: they downgrade it to a question or give up (None -> human review
 
 import re
 
+import structlog
+
 from quote_engine.adapters.extractors.text import norm
 from quote_engine.domain.catalog import Catalog
 from quote_engine.domain.interpretation import Intent, MessageInterpretation
+
+log = structlog.get_logger()
 
 # What may follow "no quiero" for it to be a removal ("ya no quiero el mesh"): an object, never an
 # infinitive ("no quiero cancelar"), "que", or a quantity ("no quiero 10, deja los 20").
@@ -138,6 +142,11 @@ def _non_assertive(t: str, verbs: bool) -> bool:
     return bool(_NON_ASSERTIVE.search(t))
 
 
+def _reject(rule: str, t: str) -> None:
+    """Give up (None -> human review), naming the rule so it is told apart from a model failure."""
+    log.info("guard_rejected", rule=rule, text=t)
+
+
 def _count(n: str) -> int | None:
     return int(n) if n.isdigit() else _WORD_INT.get(n)
 
@@ -182,21 +191,31 @@ class Guard:
         if interp.intent not in _MUTATING:
             ordered = verbs or (_SETS.search(t) and _DIGIT.search(t))
             counted = any(it.qty is not None for it in interp.items)  # "van 10 lonas"
-            return None if ordered or counted else interp  # an order is never a silent no-op
+            if ordered or counted:  # an order is never a silent no-op
+                return _reject("ordered" if ordered else "counted", t)
+            return interp
         if hedged:
-            return None  # a question/hedge read as a mutation: never apply, never downgrade
+            return _reject("hedged", t)  # a question/hedge read as a mutation: never downgrade
         if _negated(t, interp.intent):
-            return None
+            return _reject("negated", t)
         if _TEMPORAL.search(t):
-            return None
+            return _reject("temporal", t)
         whole = is_bare_cancel(t) or _WHOLE_CANCEL.search(t)
         if interp.intent is Intent.CANCEL and not interp.items and not whole:
-            return None  # the extractor dropped what was named; a whole cancel is a guess
-        if self._off_alias(interp) or _UNIT.search(t) or (_ADDS.search(t) and _SETS.search(t)):
-            return None
-        if _SWAP.search(t) or (_MISTAKE.search(t) and not _DIGIT.search(t)):
-            return None
-        return self._relative(t, interp)
+            # the extractor dropped what was named; a whole cancel is a guess
+            return _reject("cancel_unnamed", t)
+        if self._off_alias(interp):
+            return _reject("off_alias", t)
+        if _UNIT.search(t):
+            return _reject("unit", t)
+        if _ADDS.search(t) and _SETS.search(t):
+            return _reject("add_and_set", t)
+        if _SWAP.search(t):
+            return _reject("swap", t)
+        if _MISTAKE.search(t) and not _DIGIT.search(t):
+            return _reject("mistake", t)
+        got = self._relative(t, interp)
+        return got if got is not None else _reject("relative", t)
 
     @staticmethod
     def _relative(t: str, interp: MessageInterpretation) -> MessageInterpretation | None:
