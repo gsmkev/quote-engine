@@ -3,6 +3,7 @@ from types import GenericAlias
 from typing import Any, Literal
 
 from pydantic import BaseModel, PositiveInt, create_model, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from quote_engine.domain.catalog import Catalog
 
@@ -23,6 +24,9 @@ class ItemMention(BaseModel):
     in_catalog: bool = True
     qty: PositiveInt | None = None
     previous_qty: PositiveInt | None = None
+    # Relative change ("quitale 2" -> -2). Set only by deterministic code, never by the LLM:
+    # hidden from the JSON schema the model is constrained by.
+    qty_delta: SkipJsonSchema[int | None] = None
 
     @model_validator(mode="after")
     def _candidates_match_in_catalog(self) -> "ItemMention":

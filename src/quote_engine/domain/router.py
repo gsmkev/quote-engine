@@ -174,6 +174,10 @@ def route(
             if sku is None:
                 return Review("ambiguous_line", [q.id], None)
             qty = it.qty if intent is Intent.UPDATE_QTY else None
+            if intent is Intent.UPDATE_QTY and it.qty_delta is not None:
+                qty = q.lines[sku] + it.qty_delta
+                if qty < 1:
+                    return Review("invalid_ops", [q.id], None)
             if intent is Intent.UPDATE_QTY and qty is None:
                 return Review("unknown_product", [q.id], None)
             if sku in targets and targets[sku] != qty:

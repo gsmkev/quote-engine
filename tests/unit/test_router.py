@@ -22,8 +22,10 @@ LONAS = [FBT, MCL]
 DEFAULTS = frozenset({FBT, FBT250})
 
 
-def mention(cands, qty=None, prev=None):
-    return ItemMention(mention="x", sku_candidates=cands, qty=qty, previous_qty=prev)
+def mention(cands, qty=None, prev=None, delta=None):
+    return ItemMention(
+        mention="x", sku_candidates=cands, qty=qty, previous_qty=prev, qty_delta=delta
+    )
 
 
 def unknown_item(qty=None):
@@ -244,6 +246,21 @@ CASES = [
         "411",
         [Q1_FULL],
         Apply("Q-001", [LinkConversation("411"), RemoveLine(MIC)]),
+    ),
+    (
+        # "quitale 2 a las frontlit"
+        "27-update-relative",
+        interp(U, [mention([FBT, FBT250], delta=-2)]),
+        "411",
+        [Q1_FULL],
+        Apply("Q-001", [LinkConversation("411"), SetQty(FBT, 18)]),
+    ),
+    (
+        "28-update-relative-below-one",
+        interp(U, [mention([FBT], delta=-20)]),
+        "411",
+        [Q1_FULL],
+        Review("invalid_ops", ["Q-001"], None),
     ),
 ]
 

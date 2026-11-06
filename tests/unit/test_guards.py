@@ -158,3 +158,41 @@ def test_candidates_outside_the_named_alias_go_to_review():
 def test_candidates_within_the_named_alias_pass(mention, cands):
     i = interp(Intent.CREATE_QUOTE, item(cands, 2, mention=mention))
     assert guard("x", i) is i
+
+
+CYAN = "ATECYN-1L-001000"
+
+
+@pytest.mark.parametrize(
+    "intent", [Intent.REMOVE_ITEM, Intent.UPDATE_QTY, Intent.ADD_ITEMS, Intent.CANCEL]
+)
+def test_decrease_becomes_relative_update(intent):
+    got = guard("quitale 2 a las frontlit", interp(intent, item(FRONTLITS, 2)))
+    assert got is not None
+    assert got.intent == Intent.UPDATE_QTY
+    [it] = got.items
+    assert (it.qty, it.previous_qty, it.qty_delta) == (None, None, -2)
+    assert it.sku_candidates == FRONTLITS
+
+
+@pytest.mark.parametrize("intent", [Intent.UPDATE_QTY, Intent.CREATE_QUOTE])
+def test_increase_becomes_add(intent):
+    # "ponle 2 mas de esas": +2 on the existing line, never set it to 2
+    got = guard("si, ponle 2 mas de esas", interp(intent, item([CYAN], 2, 10, mention="esas")))
+    assert got is not None
+    assert got.intent == Intent.ADD_ITEMS
+    [it] = got.items
+    assert (it.qty, it.previous_qty) == (2, None)
+
+
+@pytest.mark.parametrize(
+    "text", ["quitale 2 a las frontlit y al mesh", "ponle 2 mas de esas y de las otras"]
+)
+def test_relative_change_on_several_items_goes_to_review(text):
+    i = interp(Intent.UPDATE_QTY, item(FRONTLITS, 2), item([MESH], 2))
+    assert guard(text, i) is None
+
+
+def test_relative_increase_on_plain_add_passes():
+    i = interp(Intent.ADD_ITEMS, item([CYAN], 2), item([MAG], 3))
+    assert guard("sumale 2 rollos mas de cyan y agrega 3 magenta", i) is i

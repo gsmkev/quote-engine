@@ -48,6 +48,12 @@ def test_llm_schema_has_sku_enum(cat):
     assert list(cat.skus) in _enums(ce.model_json_schema())
 
 
+def test_llm_schema_hides_qty_delta(cat):
+    # relative changes are parsed deterministically; the model must not be offered the field
+    mi, _ = make_llm_models(cat)
+    assert "qty_delta" not in str(mi.model_json_schema())
+
+
 def test_llm_model_rejects_foreign_sku(cat):
     mi, _ = make_llm_models(cat)
     with pytest.raises(ValidationError):
