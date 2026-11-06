@@ -678,3 +678,52 @@ async def test_more_order_verbs_are_rules_adds(text):
 
     r = await RuleExtractor(CATALOG).interpret(MessageCtx("m", "c1", "cu", "inbound", text, []))
     assert r is not None and r.intent == Intent.ADD_ITEMS, text
+
+
+@pytest.mark.parametrize(
+    ("text", "delta"),
+    [
+        ("quitale dos a las lonas", -2),
+        ("5 lonas menos", -5),
+        ("ponle 5 lonas mas", 5),
+        ("otras 5 lonas", 5),
+        ("sumale otros cinco", 5),
+        ("borrale 3 a las lonas", -3),
+        ("sacale 2 a las frontlit", -2),
+    ],
+)
+def test_relative_phrasings_become_deltas_not_absolute_qty(text, delta):
+    # the LLM reads these as set_qty(N); the number is a change, never the new total
+    got = guard(text, interp(Intent.UPDATE_QTY, item([FBT], abs(delta))))
+    assert got is not None and got.intent == Intent.UPDATE_QTY
+    [it] = got.items
+    assert (it.qty, it.qty_delta) == (None, delta)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "quitale veintitres a las lonas",  # a number word we do not map
+        "ponle 10 rollos de mesh mas",
+        "quitale unas 3 a las lonas",
+        "quitale un rollo a las lonas",
+        "las lonas 3.20x100 menos",
+        "dejale 4 lonas frontlit 3.20x100 menos",
+    ],
+)
+@pytest.mark.parametrize("intent", [Intent.UPDATE_QTY, Intent.ADD_ITEMS, Intent.REMOVE_ITEM])
+def test_unparsed_relative_change_goes_to_review(text, intent):
+    assert guard(text, interp(intent, item([FBT], 3))) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "intent", "it"),
+    [
+        ("quitale el mesh", Intent.REMOVE_ITEM, item([MESH])),
+        ("bajale a 10 las frontlit", Intent.UPDATE_QTY, item([FBT], 10)),
+        ("sumale 2 rollos de cyan", Intent.ADD_ITEMS, item([CYAN], 2)),
+    ],
+)
+def test_absolute_changes_and_removals_still_pass(text, intent, it):
+    i = interp(intent, it)
+    assert guard(text, i) is i

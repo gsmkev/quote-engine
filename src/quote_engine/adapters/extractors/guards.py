@@ -104,11 +104,22 @@ _UNIT = re.compile(
 )
 _ADDS = re.compile(r"\bagrega\w*|\bsuma\w*|\btambien\b")
 _SETS = re.compile(r"\bsean\b|\bcambia\w*|\ben vez de\b|\bdeja\w* en\b")
-# Relative changes: "quitale 2", "2 menos" / "ponle 2 mas". The number is read here, never
-# trusted from the extractor's qty.
-_COUNT_UNIT = r"(?:rollos? |piezas? |unidades? |planchas? )?"
-_LESS = re.compile(rf"\b(?:quit|rest|baj|descuent|reduc)\w* (\d+)\b|\b(\d+) {_COUNT_UNIT}menos\b")
-_MORE = re.compile(rf"\b(\d+) {_COUNT_UNIT}mas\b")
+# Relative changes: "quitale dos", "5 lonas menos" / "ponle 2 mas", "otras 5". The number is read
+# here, never trusted from the extractor's qty.
+_TAKE = r"\b(?:quit|rest|baj|borr|sac|descuent|reduc)\w*"
+_REL_N = rf"(?<![\w.])(\d+|(?:{_NUMBER_WORD})\b)"
+_WORDS = r"(?:\w+ ){0,2}"
+_LESS = re.compile(rf"{_TAKE} {_REL_N}|{_REL_N} {_WORDS}menos\b")
+_MORE = re.compile(rf"{_REL_N} {_WORDS}mas\b|\botr[oa]s {_REL_N}")
+# A relative cue _LESS/_MORE could not read ("quitale unas 3", "10 rollos de mesh mas"): the
+# extractor's qty would be a guess. "bajale a 10" is an absolute target, not a cue.
+_ANY_N = rf"(?:{_N}|una?\b)"
+_RELATIVE_CUE = re.compile(
+    rf"{_TAKE}(?: [^\s,;]+){{0,3}}? (?<!\ba )(?<!\ben ){_ANY_N}"
+    rf"|{_ANY_N}(?: [^\s,;]+){{0,3}}? (?:mas|menos)\b|\botr[oa]s {_ANY_N}"
+)
+_WORD_INT = {w: i for i, w in enumerate(_NUMBER_WORD.split("|")[:15], 1)}  # uno..quince
+_WORD_INT |= {"veinte": 20, "treinta": 30, "cuarenta": 40, "cincuenta": 50, "cien": 100}
 _NEGATOR = re.compile(r"\b(?:no|ni|sin)\b")
 _TAKE_AWAY = re.compile(r"\b(?:quit|sac|rest)\w*")
 _MUTATING = {
@@ -124,6 +135,10 @@ def _non_assertive(t: str, verbs: bool) -> bool:
     if verbs and "?" not in t:
         t = _PRICE_ASIDE.sub(" ", t)
     return bool(_NON_ASSERTIVE.search(t))
+
+
+def _count(n: str) -> int | None:
+    return int(n) if n.isdigit() else _WORD_INT.get(n)
 
 
 def _negated(t: str, intent: Intent) -> bool:
@@ -187,7 +202,7 @@ class Guard:
         """Relative changes only move one existing line; anything less clear goes to review."""
         less, more = _LESS.search(t), _MORE.search(t)
         if less is None and more is None:
-            return interp
+            return None if _RELATIVE_CUE.search(t) else interp
         if _NEGATOR.search(t) or (less and more):
             return None  # "ya no quiero 2 mas", "ponle 2 mas, no 5": not ours to guess
         if more is not None and interp.intent is Intent.ADD_ITEMS and not _TAKE_AWAY.search(t):
@@ -197,12 +212,15 @@ class Guard:
         if less is not None:
             if interp.intent is Intent.CREATE_QUOTE:
                 return None
-            delta = -int(less.group(1) or less.group(2))
+            n = _count(less.group(1) or less.group(2))
         else:
             assert more is not None
             if interp.intent is not Intent.UPDATE_QTY or _TAKE_AWAY.search(t):
                 return None  # remove/cancel/create with "N mas" contradicts itself
-            delta = int(more.group(1))
+            n = _count(more.group(1) or more.group(2))
+        if not n:
+            return None  # "veintitres": a number word we do not read
+        delta = n if less is None else -n
         # as a delta on UPDATE_QTY the router only touches a unique existing line, never adds one
         change = {"qty": None, "previous_qty": None, "qty_delta": delta}
         item = interp.items[0].model_copy(update=change)
