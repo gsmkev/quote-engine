@@ -100,6 +100,8 @@ async def test_extracts(text, intent, separate, items, ids):
         "no cancela la cotizacion de las lonas",
         "cancela lo del papel fotografico",  # cancel + unrecognised content is not a bare cancel
         "cancela las playeras porfa",
+        # an add and a set-quantity in one message: the contract has one intent per message
+        "agrega 2 acrilicos blancos de 3mm y que las lonas frontlit sean 10",
     ],
 )
 async def test_gives_up(text):
@@ -113,6 +115,15 @@ async def test_bare_cancel(text):
     r = await extractor.interpret(ctx(text))
     assert r is not None
     assert (r.intent, r.items) == (Intent.CANCEL, [])
+
+
+@pytest.mark.parametrize(
+    ("text", "qty"), [("las sintras q sean 12 plis", 12), ("que sean 15 las frontlit", 15)]
+)
+async def test_que_sean_is_update(text, qty):
+    r, item = await item_of(text)
+    assert r.intent == Intent.UPDATE_QTY
+    assert item.qty == qty
 
 
 async def test_cotizacion_is_not_add():

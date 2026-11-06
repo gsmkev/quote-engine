@@ -43,8 +43,9 @@ _NUM = re.compile(r"\d+")
 _QTY = re.compile(r"\b(?:sean|seria|serian|a)\s+(\d+)(?!\.?\d)(?:\s*,?\s*no\s+(\d+)(?!\.?\d))?")
 _UNIT = re.compile(r"\s+(?:rollos?|piezas?|unidades?)\b")
 _CANCEL = re.compile(r"\bcancela\w*|\banula\w*|\bya no (?:lo )?quiero\b")
-_UPDATE = re.compile(r"\bmejor (?:que )?sean\b|\bcambia\w*|\ben vez de\b")
+_UPDATE = re.compile(r"\bmejor (?:que )?sean\b|\b(?:que|q) sean\b|\bcambia\w*|\ben vez de\b")
 _ADD = re.compile(r"\bcotiza(?:me|s|r|nos)?\b|\bagrega\w*|\bsuma\b|\btambien\b|\bnecesito\b")
+_SETS = re.compile(_UPDATE.pattern + r"|\bsean\b")
 _QUERY = re.compile(r"\bque lleva\b|\bconfirmas\b|\bcuanto\b|\?$")
 _NO_N = re.compile(r"\bno\s+(\d+)")
 _NEGATED = re.compile(r"\bno (?:me |lo |la )?(?:cancel|anul)\w*")
@@ -165,8 +166,8 @@ class RuleExtractor:
         intent = self._intent(t)
         if intent is None:
             return None
-        if _NEGATED.search(t):
-            raise _GiveUp
+        if _NEGATED.search(t) or (_ADD.search(t) and _SETS.search(t)):
+            raise _GiveUp  # negated, or an add and a set-quantity mixed in one message
         prev_pos = {m.start(2) for m in _QTY.finditer(t) if m.group(2)}
         if any(m.start(1) not in prev_pos for m in _NO_N.finditer(t)):
             raise _GiveUp
