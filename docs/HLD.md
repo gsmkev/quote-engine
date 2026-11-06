@@ -21,6 +21,8 @@ We need a **headless API** that:
 |-----------|-------------|
 | **Models interpret, code decides.** | The LLM only turns text into a typed `MessageInterpretation`. A pure, deterministic router decides which quote a message affects. The aggregate decides whether the change is valid. |
 | **Invalid SKUs are unrepresentable.** | The catalog is compiled into the JSON Schema `enum` used for constrained decoding, validated again in Python (`validate_skus`), and enforced by a foreign key in the DB. |
+| **"We don't sell that" is explicit.** | A product, size, thickness or colour outside the catalog is an item with `in_catalog=false` and no SKU, never the closest SKU. It never mutates: an order that contains one goes to review as a whole (no partial apply); a question about one is answered as a no-op. |
+| **Only assertive messages mutate.** | A deterministic Guard re-reads the raw text after any extractor: questions, hedges, conditionals, negations, swaps, unsold units and references to quotes we cannot see never change a quote. |
 | **Cheap first, model last.** | A rule-based extractor handles the common phrasing at zero token cost. The LLM is called only when the rules give up. |
 | **When unsure, ask a human.** | Ambiguous messages create a review item. No quote changes and nothing reaches the ERP. |
 | **Every change has a cause.** | Append-only quote events; each one references the `message_id` (and `review_id`, if any) that caused it. |
@@ -77,8 +79,10 @@ flowchart TB
     LLM[LLMExtractor: Instructor + Docker Model Runner]
     CASC[CascadeExtractor]
     REPLAY[ReplayExtractor]
+    GUARD[Guard: text safety net]
     SQL[SQLAlchemy async repos]
   end
+  FILTER[relevant_skus: family pre-filter]
   HTTP --> ING & REV
   WK --> PIPE
   PIPE --> EXT & ROUTER & AGG & UOW
@@ -86,6 +90,8 @@ flowchart TB
   CASC --> RULES
   CASC -->|fallback| LLM
   CASC -->|fallback, replay mode| REPLAY
+  RULES & LLM & REPLAY --> GUARD
+  LLM --> FILTER
   EXT -.implemented by.-> CASC
   UOW -.implemented by.-> SQL
 ```
@@ -134,8 +140,8 @@ sequenceDiagram
   W->>DB: pg_advisory_xact_lock(customer)
   W->>DB: SAVEPOINT, store message, load recent chat + open quotes
   W->>X: interpret(message, context)
-  X-->>W: MessageInterpretation (SKUs ⊂ catalog) or None
-  W->>R: route(interp, conversation, open quotes)
+  X-->>W: MessageInterpretation (SKUs ⊂ catalog, Guard-checked) or None
+  W->>R: route(interp, conversation, open quotes, family defaults)
   R-->>W: Apply | NewQuote | Review | NoOp
   W->>DB: aggregate events + projection + links (or review_item)
   W->>DB: inbox.status = processed / needs_review, COMMIT
@@ -148,8 +154,9 @@ Claim and work share one transaction. If the work raises, only the savepoint is 
 | Step | Who decides | May decide | Must never decide | When it is wrong |
 |------|-------------|------------|-------------------|------------------|
 | Dedupe | Postgres `UNIQUE (dedupe_key)` + payload hash | duplicate, conflict or new | —                 | —                |
-| Phase 1 extraction | **LLM** (constrained) | items + qty from a whole conversation | SKUs outside the catalog (impossible: enum + check + FK) | A wrong qty/item lands in a **draft**; a human sees it before the ERP. A thread that already feeds a quote goes to review instead of creating a duplicate. |
-| Phase 2 interpretation | **Rules first**, LLM fallback | intent, product mentions → candidate SKUs, qty, previous qty, "separate" flag, explicit quote ids | which quote; any state change | A bad interpretation usually yields no or ambiguous matches → review. Measured by the golden-set evals. |
+| Phase 1 extraction | **LLM** (constrained) | items + qty from a whole conversation, or `in_catalog=false` | SKUs outside the catalog (impossible: enum + check + FK) | A wrong qty/item lands in a **draft**; a human sees it before the ERP. Any not-in-catalog item → review `unknown_product`, no quote. A thread that already feeds a quote goes to review instead of creating a duplicate. |
+| Phase 2 interpretation | **Rules first**, LLM fallback | intent, product mentions → candidate SKUs (or `in_catalog=false`), qty, previous qty, "separate" flag, explicit quote ids | which quote; any state change | A bad interpretation usually yields no or ambiguous matches → review. Measured by the golden-set evals. |
+| Is the message assertive | **Guard** (pure code over the raw text), after every extractor | pass, rewrite "quitale 2"/"2 mas" into a relative change on one line, or give up | add a mutation | Gives up (rules → LLM; LLM → review) on questions, hedges, conditionals, negations, swaps, unsold units, temporal references. Biased to review. |
 | Quote routing | **Router (pure code)** | target quote, or review | —                 | Gives up (review) on a tie, no content signal, an ambiguous line, or an update without items |
 | Mutation validity | **Quote aggregate** | accept or reject an op batch | —                 | Raises `DomainError` → nothing applied → review `invalid_ops`, inbox row `needs_review` |
 | Ambiguity | **Human** via `/v1/reviews` | explicit ops, guarded by the quote version | —                 | 409 if the quote changed meanwhile |
@@ -165,6 +172,10 @@ Claim and work share one transaction. If the work raises, only the savepoint is 
 * The chat the message came from is **not a routing signal**. Single exception: "add X" without "aparte" goes to the quote linked to this chat if there is exactly one; otherwise review. If that quote already has the SKU, the add becomes `SetQty(existing + qty)`.
 * The same SKU mentioned twice in one add/new message is merged (quantities summed); an update that gives one line two different quantities → review (`ambiguous_line`).
 * An update or removal with no product → review (`unknown_product`), never a silent link-only change.
+* Any item with `in_catalog=false` → review (`unknown_product`), whatever else the message asks: no partial apply. This includes a cancel that names a product we don't sell. Exception: a `query` drops those items and is answered as usual (no-op, or a link if a quote is clearly meant).
+* **Family default:** "lona" with no type means Frontlit, but only for a **brand-new line** (new quote, or an add that matches no line of the quote) and only if exactly one default SKU is left after the size filter. Updates, removals and queries never use it, so "mejor que sean 15 las lonas" on a quote with Frontlit and Mesh is still ambiguous.
+* A relative change ("quitale 2 a las frontlit") moves exactly one existing line (`current - 2`); below 1 → review.
+* A cancel that names only part of the quote ("cancela el microperforado nomas") is not a cancel → review.
 * Once a message is applied to a quote, its chat gets linked to that quote.
 
 **Event 4:** *"y de los acrilicos que cotizó Alice, mejor que sean 4"* arrives from Mario's chat (wa-thread-662).
@@ -192,15 +203,15 @@ With two open quotes, *"mejor cancelalo"* has no content signal.
 | Durability / restart | All state in Postgres; worker and API are stateless; a crash mid-message rolls back and the row is retried |
 | Auditability | `quote_events` (append-only, with cause) + `inbox.decision` trace: extractor source, interpretation JSON, router scores, decision, latency |
 | Testability | Pure router and aggregate; replay extractor; testcontainers for real-Postgres acceptance tests |
-| Measurability | Golden-set evals: intent / SKU / routing accuracy, % solved without the LLM, p50/p95 latency, review rate, wrong mutations |
+| Measurability | Golden-set evals (123 cases, 14 categories): intent / SKU / routing accuracy, % solved without the LLM, p50/p95 latency, review rate, wrong mutations, safe misses, per-category table; every failure classified in `evals/FAILURES.md` |
 
 ## 12. Scaling to 1,000 conversations/day — what breaks first
 
 That is less than 1 message per minute on average, with business-hour bursts. In order:
 
-1. **LLM throughput.** On the 2-core CPU VM an LLM fallback takes ~22 s and a Phase 1 extraction ~80 s, with one request at a time; a burst queues up behind it. The cascade keeps the common phrasing off the LLM; a GPU (`just up-gpu`) is the first real fix, then parallel slots, then vLLM with continuous batching.
+1. **LLM throughput.** On the 2-core CPU VM a warm LLM fallback takes ~27 s (more with long history) and a Phase 1 extraction ~80 s, with one request at a time; a burst queues up behind it. The cascade keeps the common phrasing off the LLM; a GPU (`just up-gpu`) is the first real fix, then parallel slots, then vLLM with continuous batching.
 2. **LLM call inside the transaction.** The worker holds a DB connection, the row lock and the customer's advisory lock during the model call. Fine at one worker; with many workers it pins connections. Next: two-phase processing (interpret outside the transaction, then re-read and route inside it with a version check).
-3. **Catalog size.** An `enum` with thousands of SKUs bloats the prompt and the grammar. Next: retrieval (Postgres FTS / pgvector) to build a top-k dynamic enum per message.
+3. **Catalog size.** Already visible at 39 SKUs: the full table + `enum` in every prompt made a CPU call take 54–205 s. A deterministic family pre-filter (`relevant_skus`: alias tokens, typo tolerant) now sends only the families the message mentions (~27 s warm). At thousands of SKUs the next step is retrieval (Postgres FTS / pgvector) for a top-k dynamic enum per message.
 4. **Human review throughput.** Track the review rate as a product KPI.
 
 Postgres is not the bottleneck at this volume.
@@ -228,6 +239,7 @@ Postgres is not the bottleneck at this volume.
 * Auth, UI.
 * Media and voice notes.
 * Edited or deleted messages.
-* Unit conversion.
+* Unit conversion (a quantity in units we don't sell by, e.g. "2 galones", goes to review).
 * Rep-dictated changes in Phase 2 (outbound messages are stored as context only).
-* Relative or positional references ("la de ayer", "la segunda"): these go to review.
+* Relative or positional references ("la de ayer", "la segunda"): these go to review (the Guard catches the temporal ones).
+* Per-item intents ("agrega X y que Y sean 10"), variant swaps ("era el blanco, no el transparente"): the contract has one intent per message and no swap op; these go to review.
