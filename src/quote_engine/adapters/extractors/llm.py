@@ -1,5 +1,5 @@
 import time
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 import instructor
 import structlog
@@ -9,6 +9,7 @@ from pydantic import BaseModel, create_model
 from quote_engine.application.ports import ConversationCtx, MessageCtx
 from quote_engine.config import Settings
 from quote_engine.domain.catalog import Catalog
+from quote_engine.domain.catalog_filter import relevant_skus
 from quote_engine.domain.interpretation import (
     ConversationExtraction,
     MessageInterpretation,
@@ -21,7 +22,7 @@ MESSAGE_SYSTEM = """\
 You extract structured quote intent from one WhatsApp message (Spanish) sent in a sales chat \
 for a printing-materials distributor. Earlier messages are context only.
 
-Catalog (the ONLY valid SKUs):
+Catalog (the ONLY valid SKUs; anything not listed here is NOT in the catalog):
 {catalog}
 
 Rules:
@@ -54,7 +55,7 @@ CONVERSATION_SYSTEM = """\
 You read a complete WhatsApp sales conversation (Spanish) between a customer (inbound) and a \
 sales rep (outbound), and list the products the customer finally wants to be quoted.
 
-Catalog (the ONLY valid SKUs):
+Catalog (the ONLY valid SKUs; anything not listed here is NOT in the catalog):
 {catalog}
 
 Rules:
@@ -78,6 +79,13 @@ def _transcript(messages: list[tuple[str, str]]) -> str:
     return "\n".join(f"[{d}] {t}" for d, t in messages)
 
 
+class _View(NamedTuple):
+    interp: type[MessageInterpretation]
+    extraction: type[ConversationExtraction]
+    msg_system: str
+    conv_system: str
+
+
 class LLMExtractor:
     """Local-model extractor (Instructor + Docker Model Runner); returns None on any failure."""
 
@@ -87,14 +95,27 @@ class LLMExtractor:
             AsyncOpenAI(base_url=settings.llm_base_url, api_key="dmr"),
             mode=instructor.Mode.JSON_SCHEMA,
         )
-        interp, self._extraction = make_llm_models(catalog)
-        # the model never fills `source`; it defaults to "llm"
-        self._interp: type[MessageInterpretation] = create_model(
-            "LLMInterpretation", __base__=interp, source=(Literal["llm"], "llm")
-        )
-        table = _catalog_table(catalog)
-        self._msg_system = MESSAGE_SYSTEM.format(catalog=table)
-        self._conv_system = CONVERSATION_SYSTEM.format(catalog=table)
+        self._catalog = catalog
+        self._views: dict[tuple[str, ...], _View] = {}
+
+    def _view(self, texts: list[str]) -> "_View":
+        """Prompts + schema for only the catalog families the texts mention (cached)."""
+        skus = relevant_skus(self._catalog, texts)
+        if skus not in self._views:
+            sub = Catalog(items={s: self._catalog.items[s] for s in skus})
+            interp, extraction = make_llm_models(sub)
+            # the model never fills `source`; it defaults to "llm"
+            llm_interp: type[MessageInterpretation] = create_model(
+                "LLMInterpretation", __base__=interp, source=(Literal["llm"], "llm")
+            )
+            table = _catalog_table(sub)
+            self._views[skus] = _View(
+                llm_interp,
+                extraction,
+                MESSAGE_SYSTEM.format(catalog=table),
+                CONVERSATION_SYSTEM.format(catalog=table),
+            )
+        return self._views[skus]
 
     async def _call[T: BaseModel](
         self, model: type[T], system: str, user: str, what: str
@@ -127,12 +148,14 @@ class LLMExtractor:
     async def interpret(self, ctx: MessageCtx) -> MessageInterpretation | None:
         n = self._settings.context_window_messages
         user = f"{_transcript(ctx.history[-n:])}\n\nMESSAGE: {ctx.text}"
-        result = await self._call(self._interp, self._msg_system, user, "interpret")
+        view = self._view([ctx.text, *(t for _, t in ctx.history[-n:])])
+        result = await self._call(view.interp, view.msg_system, user, "interpret")
         if result is None:
             return None
         return result.model_copy(update={"source": "llm"})
 
     async def extract_conversation(self, ctx: ConversationCtx) -> ConversationExtraction | None:
+        view = self._view([t for _, t in ctx.messages])
         return await self._call(
-            self._extraction, self._conv_system, _transcript(ctx.messages), "extract_conversation"
+            view.extraction, view.conv_system, _transcript(ctx.messages), "extract_conversation"
         )
