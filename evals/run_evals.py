@@ -214,7 +214,7 @@ async def run(
         goldens = {k: v for k, v in goldens.items() if k in only}
 
     total = len(goldens)
-    progress = HERE / f".progress-{mode}{'.only' if only else ''}.log"
+    progress = HERE / f".progress-{mode}{'.only' if only is not None else ''}.log"
     progress.write_text("")
     done = 0
 
@@ -257,7 +257,7 @@ def main() -> None:
     mode = args.mode
     only = {n.strip() for n in args.only.split(",") if n.strip()} if args.only else None
     host = os.environ.get("EVAL_HOST") or socket.gethostname().split(".")[0]
-    tag = ".only" if only else ""  # filtered runs never touch the canonical files
+    tag = ".only" if only is not None else ""  # filtered runs never touch the canonical files
     progress = HERE / f".progress-{mode}{tag}.log"
     try:
         _, metrics, rows = asyncio.run(run(mode, only))

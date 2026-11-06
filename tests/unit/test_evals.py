@@ -133,3 +133,22 @@ def test_filtered_run_leaves_canonical_results_untouched(tmp_path, monkeypatch, 
     assert (tmp_path / "results-rules-h.md").read_text() == "CANON"
     assert (tmp_path / "results-rules-h.only.json").exists()
     assert (tmp_path / "results-rules-h.only.md").exists()
+
+
+def test_blank_only_run_never_writes_canonical_results(tmp_path, monkeypatch):
+    import sys
+
+    import evals.run_evals as ev
+
+    async def fake_run(mode, only=None):
+        assert only == set()
+        e, r = pair("noop", "noop")
+        return None, summarize([(e, r)]), []
+
+    monkeypatch.setattr(ev, "HERE", tmp_path)
+    monkeypatch.setattr(ev, "run", fake_run)
+    monkeypatch.setenv("EVAL_HOST", "h")
+    monkeypatch.setattr(sys, "argv", ["x", "--mode", "rules", "--only", " , "])
+    ev.main()
+    assert not (tmp_path / "results-rules-h.json").exists()
+    assert (tmp_path / "results-rules-h.only.json").exists()
