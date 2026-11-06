@@ -10,7 +10,10 @@ from quote_engine.adapters.extractors.text import norm
 from quote_engine.domain.catalog import Catalog
 from quote_engine.domain.interpretation import Intent, MessageInterpretation
 
-CANCEL = re.compile(r"\bcancela\w*|\banula\w*|\bya no (?:lo )?quiero\b")
+# What may follow "no quiero" for it to be a removal ("ya no quiero el mesh"): an object, never an
+# infinitive ("no quiero cancelar"), "que", or a quantity ("no quiero 10, deja los 20").
+_NOT_AN_OBJECT = r"(?!\s+(?:que\b|\w+(?:ar|er|ir)\b|\d))"
+CANCEL = re.compile(rf"\bcancela\w*|\banula\w*|\bya no (?:lo )?quiero\b{_NOT_AN_OBJECT}")
 # Words a bare cancel ("mejor cancelalo", "cancela todo porfa") may carry; anything else may
 # name what to cancel.
 _CANCEL_FILLER = frozenset(
@@ -37,9 +40,14 @@ def is_bare_cancel(t: str) -> bool:
 # Non-assertive messages (questions, hypotheticals) never mutate. Broad on purpose: a miss here
 # costs a review, a false "assertive" costs a wrong quote.
 _NON_ASSERTIVE = re.compile(
-    r"\?|\bcuanto\b|\ba como\b|\bque costo\b|\bprecios?\b|\by si\b"
-    r"|\bsi (?:quiero|pongo|agrego|llevo|sumo|son|fueran|le pongo)\b|\bsaldr\w*|\bcostar\w*"
+    r"[?¿]|\bcuant[oa]s?\b|\ba como\b|\bque costo\b|\bprecios?\b|\bsaldr\w*|\bcostar\w*"
     r"|\bquedar(?:ia|ian)\b"
+    # conditional "si <word>" (not the "si," / "si mira" of a yes)
+    r"|\bsi\b(?!\s*(?:[,.!]|$|mira\b|claro\b|por favor\b|porfa\b|gracias\b|perfecto\b|va\b"
+    r"|ok\b|dale\b|bueno\b|exacto\b|eso\b))"
+    # hedges and deferrals
+    r"|\bquizas?\b|\btal vez\b|\ba lo mejor\b|\bigual y\b|\bpuede que\b|\bpensando\b"
+    r"|\bseria bueno\b|\bluego te confirmo\b|\bcuando te confirme\b|\bespera\w*"
 )
 # "cotizame 10 rollos con precio": asking for the price alongside an order keeps it an order
 _PRICE_ASIDE = re.compile(r"\b(?:con|me das|me pasas|dame|y)\s+(?:el\s+|su\s+)?precios?\b")
@@ -47,17 +55,24 @@ _PRICE_ASIDE = re.compile(r"\b(?:con|me das|me pasas|dame|y)\s+(?:el\s+|su\s+)?p
 _VERBS = re.compile(
     r"\bcoti[zsc](?!acion|ar\b)\w*|\bne[cs]e[cs]i(?:to|tamos)\b"
     r"|\bmanda(?:me|nos)?\b|\bk?quiero\b|\bkiero\b|\bpon(?:e|le|les|me)?\b|\bagreg\w*"
-    r"|\bsuma(?:le|les|me)?\b|\bllevo\b|\btambien\b"
+    r"|\bsuma(?:le|les|me)?\b|\bllevo\b|\btambien\b|\bme pasas \d"
 )
 _NUMBER_WORD = (
     r"uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince"
     r"|dieci\w+|veinte|veinti\w+|treinta|cuarenta|cincuenta|cien"
 )
-# "sean 15, no 20", "son 8, no 6", "no eran 3 eran 5": a previous quantity, not a negation
-_PREV_QTY = re.compile(rf"\bno\s+(?:(?:de|eran?|son|sean)\s+)?(?:\d|(?:{_NUMBER_WORD})\b)")
+_N = rf"(?:\d+|(?:{_NUMBER_WORD})\b)"
+# "sean 15, no 20", "son 8 rollos, no 6", "no eran 3 eran 5": a previous quantity, not a negation
+_PREV_QTY = re.compile(
+    rf"\b(?:sean|son|eran?)\s+{_N}[^,.;]{{0,40}}?,?\s*no\s+(?:de\s+)?{_N}"
+    rf"|\bno\s+eran?\s+{_N}\s*,?\s*eran?\s+{_N}"
+)
 # "ya no quiero el X" is how a removal/cancel is said, not a negated order
-_REMOVAL = re.compile(r"\b(?:ya )?no (?:lo |la |los |las |me )?(?:quiero|necesito)\b")
-_NEGATED = re.compile(r"\b(?:no|ni|sin)\b")
+_REMOVAL = re.compile(
+    rf"\b(?:ya )?no (?:lo |la |los |las |me )?(?:quiero|necesito)\b{_NOT_AN_OBJECT}"
+)
+# "olvida/olvidate" (forget it) negate; "se me olvido" (I forgot) does not
+_NEGATED = re.compile(r"\b(?:no|ni|sin|tampoco|nunca|jamas|olvid(?:a|ate|alo|ala|alos|alas|en))\b")
 # "la de ayer", "lo mismo que la vez pasada": a quote we cannot see; never guess it
 _TEMPORAL = re.compile(
     r"\b(?:ayer|antier|anteayer|vez pasada|otra vez|otro dia|semana pasada|mes pasado"
@@ -99,7 +114,7 @@ def _non_assertive(t: str, verbs: bool) -> bool:
 
 def _negated(t: str, intent: Intent) -> bool:
     t = _PREV_QTY.sub(" ", t)
-    if intent in (Intent.REMOVE_ITEM, Intent.CANCEL):
+    if intent in (Intent.REMOVE_ITEM, Intent.CANCEL) and "deja" not in t:
         t = _REMOVAL.sub(" ", t)
     return bool(_NEGATED.search(t))
 

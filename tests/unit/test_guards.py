@@ -432,3 +432,111 @@ def test_challenge_question_stays_a_query():
     )
     i = interp(Intent.QUERY, item(FRONTLITS))
     assert guard(text, i) is i
+
+
+ROUND4 = [
+    # negated instructions that look like removals/cancels
+    "ya no quiero cancelar",
+    "ya no quiero cancelar la Q-001",
+    "no quiero cancelar",
+    "no quiero quitar el mesh",
+    "ya no quiero quitar el mesh",
+    "no lo quiero cancelar todavia",
+    "no necesito quitar nada",
+    "ya no quiero cambiar nada",
+    "ya no quiero que la canceles",
+    "no quiero 10, deja los 20",
+    "no quiero 10 mesh, deja los 5",
+    # opening "¿" without closing "?", conditional "si"
+    "¿me agregas 5 mesh",
+    "¿me cambias a 10 las frontlit",
+    "que tal si agregamos 5 mesh",
+    "si agregamos 5 mesh me hacen descuento",
+    "despues te confirmo si agregamos 5 mesh",
+    "quiero saber si me agregas 5 mesh",
+    "si compro 10 frontlit me hacen descuento",
+    "si pido 10 frontlit me hacen descuento",
+    # hedges and deferrals
+    "quizas agrega 5 mesh",
+    "quiza 10 frontlit",
+    "tal vez agrega 5 mesh",
+    "a lo mejor agrega 5 mesh",
+    "igual y agrega 5 mesh",
+    "puede que agregue 5 mesh",
+    "estoy pensando agregar 5 mesh",
+    "seria bueno agregar 5 mesh",
+    "agrega 5 mesh, luego te confirmo",
+    "agrega 5 mesh cuando te confirme",
+    "espera, agrega 5 mesh",
+    "cuantos mesh me agregas, 5",
+    # lexical negation
+    "tampoco agregues 5 mesh",
+    "nunca agregues 5 mesh",
+    "jamas agregues 5 mesh",
+    "olvida lo de agregar 5 mesh",
+    "olvidate de los 5 mesh",
+    # bare "no N" is not a previous quantity
+    "no 5 mesh, gracias",
+    "agrega 5 frontlit, no 5 mesh",
+]
+
+
+def _routes_safely(got):
+    from quote_engine.domain.router import Apply, NewQuote, QuoteView, route
+
+    for quotes in ([], [QuoteView("Q-001", {FBT: 20, MESH: 5}, frozenset({"c1"}))]):
+        if got is None:
+            continue
+        d = route(got, "c1", quotes)
+        assert not isinstance(d, NewQuote), (got, d)
+        assert not (isinstance(d, Apply) and len(d.ops) > 1), (got, d)
+
+
+@pytest.mark.parametrize("text", ROUND4)
+@pytest.mark.parametrize(
+    ("intent", "it"),
+    [
+        (Intent.UPDATE_QTY, item([FBT], 10, 20)),
+        (Intent.ADD_ITEMS, item([MESH], 5)),
+        (Intent.CREATE_QUOTE, item([MESH], 5)),
+        (Intent.REMOVE_ITEM, item([MESH])),
+        (Intent.CANCEL, None),
+    ],
+)
+def test_round4_llm_readings_never_mutate(text, intent, it):
+    got = guard(text, interp(intent, *([it] if it else [])))
+    assert got is None or got.intent in (Intent.QUERY, Intent.NONE)
+    _routes_safely(got)
+
+
+@pytest.mark.parametrize("text", ROUND4)
+async def test_round4_rules_never_mutate(text):
+    from quote_engine.adapters.extractors.rules import RuleExtractor
+    from quote_engine.application.ports import MessageCtx
+
+    r = await RuleExtractor(CATALOG).interpret(MessageCtx("m", "c1", "cu", "inbound", text, []))
+    assert r is None or r.intent in (Intent.QUERY, Intent.NONE)
+    _routes_safely(r)
+
+
+@pytest.mark.parametrize(
+    ("text", "intent", "it"),
+    [
+        ("si, ponle 2 mas de esas", Intent.ADD_ITEMS, item([CYAN], 2)),
+        ("me pasas 3 lonas frontlit", Intent.ADD_ITEMS, item([FBT], 3)),
+        (
+            "ah y otra cosa que se me olvido agregale tambien dos tintas amarillas",
+            Intent.ADD_ITEMS,
+            item([CYAN], 2),
+        ),
+    ],
+)
+def test_round4_assertive_messages_pass(text, intent, it):
+    i = interp(intent, it)
+    assert guard(text, i) is i
+
+
+def test_me_pasas_with_number_is_an_order_and_without_is_a_query():
+    assert guard("me pasas 3 lonas frontlit", interp(Intent.QUERY)) is None
+    q = interp(Intent.QUERY)
+    assert guard("me pasas el total de la Q-001 xfa", q) is q
