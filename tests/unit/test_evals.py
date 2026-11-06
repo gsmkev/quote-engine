@@ -97,6 +97,7 @@ async def test_outbound_case_is_noop_without_extractor():
     r = await run_case(_golden(direction="outbound"), ex, Catalog.from_json(CATALOG))
     assert ex.ctxs == []
     assert (r.decision, r.source) == ("noop", "skipped")
+    assert r.intent == "none"  # skipped outbound means "no intent", not "extractor gave up"
 
 
 async def test_history_and_direction_reach_the_context():

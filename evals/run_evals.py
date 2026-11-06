@@ -182,7 +182,7 @@ def render_md(mode: str, host: str, m: dict[str, Any], rows: list[dict]) -> str:
 
 async def run_case(g: Golden, extractor: Extractor, catalog: Catalog) -> Result:
     if g.direction == "outbound":  # mirrors the pipeline guard: never interpreted
-        return Result(intent=None, skus=[], decision="noop", source="skipped", latency_ms=0.0)
+        return Result(intent="none", skus=[], decision="noop", source="skipped", latency_ms=0.0)
     quotes = [QuoteView(q["id"], q["lines"], frozenset(q["conversations"])) for q in g.open_quotes]
     ctx = MessageCtx("eval", g.conversation_id, "C-eval", g.direction, g.text, list(g.history))
     start = time.monotonic()
