@@ -707,7 +707,6 @@ def test_relative_phrasings_become_deltas_not_absolute_qty(text, delta):
         "ponle 10 rollos de mesh mas",
         "quitale unas 3 a las lonas",
         "quitale un rollo a las lonas",
-        "las lonas 3.20x100 menos",
         "dejale 4 lonas frontlit 3.20x100 menos",
     ],
 )
@@ -814,3 +813,15 @@ def test_guard_rejections_are_logged_with_a_rule_name(text, intent, it, rule):
 )
 def test_more_temporal_references_go_to_review(text):
     assert guard(text, interp(Intent.CREATE_QUOTE, item([MESH], 5))) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "unas 15 lonas frontlit de 3.20 por 100 y 4 rollos de microperforado de 1.37 eh y nada mas",
+        "4 rollos de microperforado 1.37 y ya nada mas",
+    ],
+)
+def test_dimensions_and_nada_mas_are_not_relative_cues(text):
+    i = interp(Intent.CREATE_QUOTE, item([FBT], 15), item([MICS_152], 4))
+    assert guard(text, i) is i

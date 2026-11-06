@@ -118,10 +118,10 @@ _LESS = re.compile(rf"{_TAKE} {_REL_N}|{_REL_N} {_WORDS}menos\b")
 _MORE = re.compile(rf"{_REL_N} {_WORDS}mas\b|\botr[oa]s {_REL_N}")
 # A relative cue _LESS/_MORE could not read ("quitale unas 3", "10 rollos de mesh mas"): the
 # extractor's qty would be a guess. "bajale a 10" is an absolute target, not a cue.
-_ANY_N = rf"(?:{_N}|una?\b)"
+_ANY_N = rf"(?<![\w.])(?:{_N}|una?\b)"  # never a dimension's digits ("1.37")
 _RELATIVE_CUE = re.compile(
     rf"{_TAKE}(?: [^\s,;]+){{0,3}}? (?<!\ba )(?<!\ben ){_ANY_N}"
-    rf"|{_ANY_N}(?: [^\s,;]+){{0,3}}? (?:mas|menos)\b|\botr[oa]s {_ANY_N}"
+    rf"|{_ANY_N}(?: [^\s,;]+){{0,3}}? (?<!\bnada )(?:mas|menos)\b|\botr[oa]s {_ANY_N}"
 )
 _WORD_INT = {w: i for i, w in enumerate(_NUMBER_WORD.split("|")[:15], 1)}  # uno..quince
 _WORD_INT |= {"veinte": 20, "treinta": 30, "cuarenta": 40, "cincuenta": 50, "cien": 100}
