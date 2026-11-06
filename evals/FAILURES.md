@@ -137,3 +137,90 @@ wrong mutation: 9, out-of-catalog misassigned: 1, safe miss: 25, silent miss (no
 Out-of-catalog cases routed correctly but with a catalog SKU assigned to the unknown product (routing saved by another rule):
 
 - vn-mixed-unknown: got skus ['ALBKOC-013-220100', 'ALBKOC-013-250100', 'ALBKOC-013-320050', 'ALBKOC-013-320100', 'ALFBTC-013-160100', 'ALFBTC-013-220100', 'ALFBTC-013-250050', 'ALFBTC-013-250100', 'ALFBTC-013-320050', 'ALFBTC-013-320100', 'ALMCLC-0909-250100', 'ALMCLC-0909-320100']
+
+## Status after Task 8 (bounded adjustment loop)
+
+Rules mode re-run in full; cascade re-run only on the affected cases (5 `--only` batches, 63 cases total, never the full set). "—" = the case was not failing in that mode at baseline. After Task 8: **rules 0 wrong mutations, 0 silent misses (47 failing, all safe reviews; baseline 61 after the golden rulings)**; **cascade on the re-run cases: 0 wrong mutations, 0 silent misses, 0 out-of-catalog misassignments**.
+
+| case | category | rules now | cascade now | status |
+|---|---|---|---|---|
+| para-frontlit | legacy | fixed | — | fixed |
+| para-suma-mesh | legacy | fixed | — | fixed |
+| para-ya-no-micro | legacy | review (safe) | — | known — needs rules REMOVE_ITEM support (rules have no remove intent) |
+| typo-microperforadso | legacy | review (safe) | — | known — needs fuzzy alias matching in rules (typo) |
+| words-quince-frontlit | legacy | review (safe) | — | known — needs number words in rules |
+| trap-gracias | legacy | review (safe) | — | known — needs rules NONE intent for chatter |
+| trap-ok-atento | legacy | review (safe) | — | known — needs rules NONE intent for chatter |
+| id-q1-mesh | legacy | review (safe) | — | known — needs 'pon N de' set-quantity verb in rules |
+| cn-laminado-brillante | catalog_new | fixed | — | fixed |
+| ts-trovicel | typos_slang | fixed | fixed | fixed |
+| ts-malla | typos_slang | fixed | — | fixed |
+| ts-black-out | typos_slang | fixed | — | fixed |
+| ts-vinilo | typos_slang | fixed | — | fixed |
+| ts-acrilco-negro | typos_slang | review (safe) | — | known — needs fuzzy alias matching in rules (typo) + 'd'/'x fa' slang |
+| ts-one-way | typos_slang | review (safe) | fixed | known — needs rules intent for messages without a verb (cascade fixed) |
+| ts-lonsas-frontlit | typos_slang | fixed | — | fixed |
+| ts-sintras-plis | typos_slang | fixed | fixed | fixed |
+| uq-un-par | units_quantities | review (safe) | — | known — needs quantity words (par/docena) in rules |
+| uq-media-docena | units_quantities | review (safe) | — | known — needs quantity words in rules |
+| uq-docena | units_quantities | review (safe) | not re-run (unchanged path; review) | known — needs quantity words in rules; cascade LLM output not accepted |
+| uq-x2 | units_quantities | review (safe) | — | known — needs 'x2' quantity syntax in rules |
+| uq-2u | units_quantities | review (safe) | — | known — needs '2u' unit syntax in rules |
+| uq-veinticinco | units_quantities | review (safe) | — | known — needs number words in rules |
+| uq-litros | units_quantities | review (safe) | not re-run (unchanged path; review) | known — needs 'litros' as unit for 1L ink in rules; cascade LLM output not accepted |
+| uq-galones | units_quantities | — | fixed | fixed |
+| mi-add-two-new | multi_item | fixed | fixed | fixed (plural laminado aliases) |
+| mi-add-existing | multi_item | fixed | — | fixed |
+| mi-two-intents | multi_item | review (safe) | review (safe) | known — needs per-item intents in the contract (one intent per message) — now review by design |
+| mi-bullet-list | multi_item | review (safe) | — | known — needs rules: multi-line bullet lists |
+| co-eran-15 | corrections | review (safe) | not re-run (unchanged path; review) | known — needs elliptic correction without product ('eran 15 no 12'): history resolution |
+| co-swap-colour | corrections | review (safe) | review (safe) | known — needs a swap op (remove X + add Y) in the contract — now review by design |
+| co-no-eran-3 | corrections | review (safe) | — | known — needs rules parsing of 'no eran N eran M' |
+| co-corrijo-blackout | corrections | review (safe) | — | known — needs rules parsing of 'son N, no M' |
+| co-swap-width | corrections | review (safe) | not re-run (unchanged path; review) | known — needs a swap op in the contract — review by design |
+| pr-quita-vinil | partial_remove | review (safe) | not re-run (unchanged path; review) | known — needs rules REMOVE_ITEM support; cascade LLM picks no single line |
+| pr-ya-no-sintra | partial_remove | review (safe) | fixed | known — needs rules REMOVE_ITEM support |
+| pr-sacame-tintas | partial_remove | review (safe) | not re-run (unchanged path; review) | known — needs REMOVE of a family covering several lines (router removes one line per mention) |
+| pr-quitale-2 | partial_remove | review (safe) | fixed | known — needs rules parsing of 'quitale N a X' (cascade fixed via guard + qty_delta) |
+| oc-papel-foto | out_of_catalog | — | fixed | fixed |
+| oc-question-noop | out_of_catalog | review (safe) | fixed | known — needs rules question parsing (cascade fixed) |
+| oc-question-link | out_of_catalog | review (safe) | — | known — needs rules question parsing (cascade fixed) |
+| qn-hola | questions_noop | review (safe) | — | known — needs rules NONE intent for chatter |
+| qn-precio | questions_noop | fixed | fixed | fixed |
+| qn-stock | questions_noop | review (safe) | fixed | known — needs rules question parsing (cascade fixed) |
+| qn-entrega | questions_noop | review (safe) | not re-run (unchanged path; review) | known — LLM extraction for logistics/billing questions (not re-run; review) |
+| qn-total-q001 | questions_noop | review (safe) | — | known — needs rules question parsing |
+| qn-factura | questions_noop | review (safe) | not re-run (unchanged path; review) | known — needs same as qn-entrega |
+| qn-gracias-jefe | questions_noop | review (safe) | — | known — needs rules NONE intent for chatter |
+| qn-price-en-vez-de | questions_noop | review (safe) | fixed | known — needs rules question parsing (cascade fixed) |
+| rf-la-de-ayer | references | — | fixed | fixed |
+| rf-history-esas | references | review (safe) | fixed | known — needs rules history resolution (cascade fixed via guard) |
+| rf-history-answer | references | review (safe) | not re-run (unchanged path; review) | known — needs history resolution of a bare number answering the rep |
+| mq-prev-qty | multi_quote | fixed | — | fixed |
+| mq-explicit-add | multi_quote | review (safe) | not re-run (unchanged path; review) | known — needs router: ADD with explicit quote id ignores the id (uses linked quote) |
+| mq-three-tintas | multi_quote | fixed | fixed | fixed |
+| mq-add-by-content | multi_quote | review (safe) | review (safe) | known — needs router: ADD picks the linked quote, not the one matching by content |
+| vn-new-order | voice_note | review (safe) | — | known — needs rules: long voice-note phrasing |
+| vn-update | voice_note | review (safe) | — | known — needs rules: number words / long phrasing |
+| vn-question | voice_note | review (safe) | not re-run (unchanged path; review) | known — needs same as qn-entrega |
+| vn-add | voice_note | review (safe) | — | known — needs rules: number words |
+| ca-by-content | cancel | review (safe) | review (safe) | known — needs cancel resolved by content: LLM output not accepted / rules give up |
+| ca-partial | cancel | review (safe) | review (safe) | known — needs cancel+product as line removal: cascade now review by design; needs remove_item mapping |
+| ca-negated | cancel | review (safe) | — | known — needs rules NONE intent for negated cancels |
+| vn-cancel | voice_note | review (safe) — new | — (still passes via LLM) | known — long cancel is no longer a bare cancel in rules (deliberate: safer); needs nothing in cascade |
+| ca-unknown-product | cancel | fixed | fixed | fixed |
+
+Baseline wrong mutations (cascade 9 + 1 out-of-catalog, rules 1 + 1) — how each was closed:
+
+| case | fix |
+|---|---|
+| ca-unknown-product | rules: only a short filler-only message is a bare cancel; guard: an itemless cancel that names something (not "todo"/"la cotizacion") -> review |
+| ca-partial | router: cancel naming only part of a quote -> review; guard as above for the LLM's itemless cancel |
+| qn-price-en-vez-de | guard: price/availability questions are downgraded to `query` -> `apply:Q-001[]` |
+| rf-la-de-ayer | guard: temporal references ("ayer", "vez pasada", ...) on a mutation -> review |
+| pr-quitale-2 | additive `ItemMention.qty_delta` (hidden from the LLM schema); guard parses "quitale N"/"N menos" -> `SetQty(current - N)` |
+| rf-history-esas | guard: "N mas" on a single item -> add N on top of the existing line |
+| mi-two-intents | rules give up and guard reviews when add and set-quantity markers co-occur |
+| co-swap-colour | guard: "era X no Y" / "me equivoque" without numbers -> review |
+| ts-one-way | prompt states "one way" = microperforado; guard rejects candidates outside the aliases named in the mention |
+| uq-galones | guard: units we do not sell by (galones, cajas, kg, metros, ...) -> review |
