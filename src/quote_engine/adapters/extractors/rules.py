@@ -45,7 +45,10 @@ _QTY = re.compile(r"\b(?:sean|seria|serian|a)\s+(\d+)(?!\.?\d)(?:\s*,?\s*no\s+(\
 _UNIT = re.compile(r"\s+(?:rollos?|piezas?|unidades?|planchas?|laminas?)\b")
 _CANCEL = re.compile(r"\bcancela\w*|\banula\w*|\bya no (?:lo )?quiero\b")
 _UPDATE = re.compile(r"\bmejor (?:que )?sean\b|\b(?:que|q) sean\b|\bcambia\w*|\ben vez de\b")
-_ADD = re.compile(r"\bcotiza(?:me|s|r|nos)?\b|\bagrega\w*|\bsuma\b|\btambien\b|\bne[cs]e[cs]ito\b")
+_ADD = re.compile(
+    r"\bcoti[zs]a(?:me|s|r|nos)?\b|\bagrega\w*|\bsuma(?:le|les|me)?\b|\btambien\b"
+    r"|\bne[cs]e[cs]ito\b|(?<!\bno )\bk?quiero\b|(?<!\bno )\bkiero\b"
+)
 _SETS = re.compile(_UPDATE.pattern + r"|\bsean\b")
 _QUERY = re.compile(r"\bque lleva\b|\bconfirmas\b|\bcuanto\b|\?$")
 _NO_N = re.compile(r"\bno\s+(\d+)")

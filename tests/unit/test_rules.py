@@ -93,6 +93,7 @@ async def test_extracts(text, intent, separate, items, ids):
         "cotizame 2 lonas y 5",
         "cancela las lonas",
         "cotizame 2 lonas y 3 acrilicos 4",
+        "no quiero 2 lonas frontlit",
         "cotizame 3 lonas no 5 vinil",
         "mejor que sean 12 lonas no 2 acrilicos",
         "cuanto cuestan 3 lonas",
@@ -279,3 +280,22 @@ async def test_typo_order_verb_and_sheet_unit():
     r, item = await item_of("nesesito 4 planchas de trovicel de 5mm xfa")
     assert r.intent == Intent.ADD_ITEMS
     assert (item.sku_candidates, item.qty) == ([PVC_5], 4)
+
+
+@pytest.mark.parametrize(
+    ("text", "qty"),
+    [
+        ("súmale 1 rollo de mesh", 1),
+        ("quiero 2 rollos de laminado brillante", 2),
+        ("kiero 5 vinilos transparentes de 1.06", 5),
+        ("cotisame 2 rollos de malla 2.50 x100", 2),
+    ],
+)
+async def test_add_verb_variants(text, qty):
+    r, item = await item_of(text)
+    assert r.intent == Intent.ADD_ITEMS
+    assert item.qty == qty
+
+
+async def test_negated_want_is_not_an_add():
+    assert await extractor.interpret(ctx("no quiero 2 lonas")) is None
