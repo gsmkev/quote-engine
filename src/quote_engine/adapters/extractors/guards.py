@@ -39,15 +39,25 @@ def is_bare_cancel(t: str) -> bool:
 
 # Non-assertive messages (questions, hypotheticals) never mutate. Broad on purpose: a miss here
 # costs a review, a false "assertive" costs a wrong quote.
+# "si agrega 2…", "si mandame 5…": a yes followed by an imperative order, not a conditional
+_IMPERATIVE = (
+    r"agrega(?:le|me|les)?\b|manda(?:me|le|nos)?\b|cotiza(?:me|nos)?\b|pon(?:le|me)?\b"
+    r"|suma(?:le|me)?\b|dame\b|quita(?:le|me)?\b|saca(?:le|me)?\b"
+)
 _NON_ASSERTIVE = re.compile(
     r"[?¿]|\bcuant[oa]s?\b|\ba como\b|\bque costo\b|\bprecios?\b|\bsaldr\w*|\bcostar\w*"
     r"|\bquedar(?:ia|ian)\b"
     # conditional "si <word>" (not the "si," / "si mira" of a yes)
     r"|\bsi\b(?!\s*(?:[,.!]|$|mira\b|claro\b|por favor\b|porfa\b|gracias\b|perfecto\b|va\b"
-    r"|ok\b|dale\b|bueno\b|exacto\b|eso\b))"
+    r"|ok\b|dale\b|bueno\b|exacto\b|eso\b|" + _IMPERATIVE + r"))"
     # hedges and deferrals
     r"|\bquizas?\b|\btal vez\b|\ba lo mejor\b|\bigual y\b|\bpuede que\b|\bpensando\b"
-    r"|\bseria bueno\b|\bluego te confirmo\b|\bcuando te confirme\b|\bespera\w*"
+    r"|\bseria bueno\b|\bluego te confirmo\b|(?<!\ben )\bespera\w*"
+    # deferrals ("cuando me autoricen", "apenas me confirmen") and exploratory phrasing
+    r"|\bcuando\b|\bapenas\b|\bestamos viendo\b|\bme interesa\b|\bhabria chance\b"
+    r"|\ben una de esas\b|\bserian\b|\bte confirmo\b|\bte aviso\b|\bchec\w*"
+    r"|\blo pienso\b|\bpensarlo\b|\bvoy a pensar\b|\bahi lo vemos\b|\bprobablemente\b"
+    r"|\bposiblemente\b|\b\d+ o \d+\b|\bentre \d+ y \d+\b"
 )
 # "cotizame 10 rollos con precio": asking for the price alongside an order keeps it an order
 _PRICE_ASIDE = re.compile(r"\b(?:con|me das|me pasas|dame|y)\s+(?:el\s+|su\s+)?precios?\b")
@@ -79,7 +89,10 @@ _TEMPORAL = re.compile(
     r"|la anterior|el anterior)\b"
 )
 # "era el blanco no el transparente": a variant swap, not a quantity change
-_SWAP = re.compile(r"\beran? (?:el|la|los|las|de|del)\b.*\bno (?:el|la|los|las|de|del)\b")
+_SWAP = re.compile(
+    r"\beran? (?:el|la|los|las|de|del)\b.*\bno (?:el|la|los|las|de|del)\b"
+    r"|\bno\b.*\bsino\b|\ben vez de\b.*\bmejor\b"  # "no quiero X sino Y", "en vez de X mejor Y"
+)
 _MISTAKE = re.compile(r"\bme equivoque\b")
 _DIGIT = re.compile(r"\d")
 # Units we do not sell by (we sell rolls, sheets and 1L bottles); a dimension ("x 100 m") is

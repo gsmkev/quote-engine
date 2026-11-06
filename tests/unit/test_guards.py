@@ -540,3 +540,85 @@ def test_me_pasas_with_number_is_an_order_and_without_is_a_query():
     assert guard("me pasas 3 lonas frontlit", interp(Intent.QUERY)) is None
     q = interp(Intent.QUERY)
     assert guard("me pasas el total de la Q-001 xfa", q) is q
+
+
+TASK8B_REVIEW = [
+    "cuando me autoricen agrega 5 mesh",
+    "apenas me confirmen agrega 5 mesh",
+    "agrega 5 mesh cuando puedas",
+    "no quiero el mesh de 3.20 sino el de 2.50",
+    "no quiero las frontlit sino mesh",
+    "en vez de frontlit mejor 5 mesh",
+    "estamos viendo agregar 5 mesh",
+    "me interesa agregar 5 mesh",
+    "habria chance de agregar 5 mesh",
+    "en una de esas agrega 5 mesh",
+    "serian 5 mesh",
+    "agrega 5 mesh, te confirmo",
+    "agrega 5 mesh y te aviso",
+    "agrega 5 mesh, lo checo",
+    "dejame checarlo, agrega 5 mesh",
+    "agrega 5 mesh, lo pienso",
+    "agrega 5 mesh, lo voy a pensar",
+    "agrega 5 mesh y ahi lo vemos",
+    "probablemente agrega 5 mesh",
+    "posiblemente 5 mesh",
+    "agrega 5 o 6 mesh",
+    "agrega entre 5 y 6 mesh",
+]
+
+
+@pytest.mark.parametrize("text", TASK8B_REVIEW)
+@pytest.mark.parametrize(
+    ("intent", "it"),
+    [
+        (Intent.UPDATE_QTY, item([MESH], 5, 20)),
+        (Intent.ADD_ITEMS, item([MESH], 5)),
+        (Intent.CREATE_QUOTE, item([MESH], 5)),
+        (Intent.REMOVE_ITEM, item([MESH])),
+    ],
+)
+def test_task8b_llm_readings_never_mutate(text, intent, it):
+    got = guard(text, interp(intent, it))
+    assert got is None or got.intent in (Intent.QUERY, Intent.NONE)
+    _routes_safely(got)
+
+
+@pytest.mark.parametrize("text", TASK8B_REVIEW)
+async def test_task8b_rules_never_mutate(text):
+    from quote_engine.adapters.extractors.rules import RuleExtractor
+    from quote_engine.application.ports import MessageCtx
+
+    r = await RuleExtractor(CATALOG).interpret(MessageCtx("m", "c1", "cu", "inbound", text, []))
+    assert r is None or r.intent in (Intent.QUERY, Intent.NONE)
+    _routes_safely(r)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "cotizame 5 mesh, quedo en espera",
+        "si agrega 2 acrilicos blancos de 3mm",
+        "sí mándame 5 mesh",
+        "si, agrega 2 acrilicos blancos de 3mm",
+        "agregame 5 mesh 3.20x100",
+        "que sean 12 las sintras de 3mm",
+        "quita el microperforado",
+        "hola que tal mira necesitamos 15 lonas frontlit eh y nada mas eso seria todo gracias",
+    ],
+)
+def test_task8b_assertive_orders_pass(text):
+    i = interp(Intent.ADD_ITEMS, item([MESH], 5))
+    assert guard(text, i) is i
+
+
+async def test_task8b_assertive_rules_orders_still_extract():
+    from quote_engine.adapters.extractors.rules import RuleExtractor
+    from quote_engine.application.ports import MessageCtx
+
+    for text in [
+        "cotizame 5 mesh 3.20x100, quedo en espera",
+        "si agrega 2 acrilicos blancos de 3mm",
+    ]:
+        r = await RuleExtractor(CATALOG).interpret(MessageCtx("m", "c1", "cu", "inbound", text, []))
+        assert r is not None and r.intent == Intent.ADD_ITEMS, text
