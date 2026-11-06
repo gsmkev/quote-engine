@@ -35,6 +35,9 @@ size, thickness or colour is NOT in the catalog, return the item with in_catalog
 sku_candidates=[]; never pick the closest SKU.
 - A new request for "lona" with no type means Frontlit; for references to lines already \
 discussed, list every plausible candidate instead.
+- Slang: "one way" is ONLY Vinil Adhesivo Microperforado (never mate, brillante or \
+transparente); "sintra"/"trovicel" is PVC Espumado; "malla" is Lona Mesh; "banner" is Lona \
+Frontlit.
 - Never invent quantities: qty is null unless the message states it.
 - For update_qty ("mejor que sean 15, no 20"): qty is the new quantity, previous_qty the old one.
 - explicit_quote_ids: quote ids like Q-001 mentioned in the message.

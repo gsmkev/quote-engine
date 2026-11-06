@@ -116,3 +116,10 @@ def test_build_extractor_modes():
     assert isinstance(replay.fallback, ReplayExtractor)
     with pytest.raises(ValueError, match="bogus"):
         build_extractor(Settings(extractor_mode="bogus"), catalog)
+
+
+def test_message_prompt_spells_out_slang():
+    from quote_engine.adapters.extractors.llm import LLMExtractor
+
+    system = LLMExtractor(Settings(), catalog)._view(["one way 1.52, 2 rollos"]).msg_system
+    assert '"one way" is ONLY Vinil Adhesivo Microperforado' in system
