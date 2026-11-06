@@ -34,6 +34,11 @@ def is_bare_cancel(t: str) -> bool:
     return all(w in _CANCEL_FILLER for w in rest)
 
 
+# "cuanto me sale si...", "cuanto cuesta...": a question even without "?"
+_PRICE_SHAPE = re.compile(
+    r"\bcuanto (?:me |nos |te )?(?:sale|salen|saldria|cuesta|cuestan|costaria|cobran|vale|valen"
+    r"|seria|serian)\b"
+)
 _PRICE_Q = re.compile(
     r"\bcuanto (?:me |nos )?(?:sale|salen|saldria|cuesta|cuestan|costaria|seria|serian|cobran)\b"
     r"|\bprecios?\b|\bme sale\b"
@@ -69,7 +74,7 @@ _ORDER = re.compile(
     r"|\bkiero\b|\bpon(?:le|me)\b"
 )
 # "acrilico dorado manejan?": asking whether we carry something is not an order
-_ASK = re.compile(r"\b(?:manejan|tienen|venden|hay|trabajan)\b[^?]*\?")
+_ASK = re.compile(r"\b(?:manejan|tienen|venden|hay|trabajan|disponibles?|stock)\b")
 _MUTATING = {
     Intent.CREATE_QUOTE,
     Intent.ADD_ITEMS,
@@ -112,9 +117,12 @@ class Guard:
             if (orders or _SETS.search(t)) and _DIGIT.search(t) and "?" not in t:
                 return None
             return interp
-        if (_PRICE_Q.search(t) or _ASK.search(t)) and not orders:
-            # "cuanto me sale si llevo 10 en vez de 20?" asks, it does not order
-            return interp.model_copy(update={"intent": Intent.QUERY})
+        price = _PRICE_Q.search(t)
+        asked = "?" in t and (price or _ASK.search(t))
+        if _PRICE_SHAPE.search(t) or asked or (price and not orders):
+            # A price/availability question never mutates. With an order verb in it too, which
+            # part is the order is a guess: review rather than risk a silent noop.
+            return None if orders else interp.model_copy(update={"intent": Intent.QUERY})
         if _TEMPORAL.search(t):
             return None
         whole = is_bare_cancel(t) or _WHOLE_CANCEL.search(t)
@@ -132,10 +140,8 @@ class Guard:
         less, more = _LESS.search(t), _MORE.search(t)
         if less is None and more is None:
             return interp
-        rel = less or more
-        assert rel is not None
-        if _NEGATOR.search(t, 0, rel.start()) or (less and more):
-            return None  # "ya no quiero 2 mas", "no le quites 2": not ours to guess
+        if _NEGATOR.search(t) or (less and more):
+            return None  # "ya no quiero 2 mas", "ponle 2 mas, no 5": not ours to guess
         if more is not None and interp.intent is Intent.ADD_ITEMS and not _TAKE_AWAY.search(t):
             return interp  # an add already means "on top of what is there"
         if len(interp.items) != 1 or not interp.items[0].in_catalog:

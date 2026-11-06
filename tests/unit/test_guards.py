@@ -298,6 +298,40 @@ def test_cancel_all_of_something_goes_to_review():
     assert guard("cancela todo lo del papel fotografico", interp(Intent.CANCEL)) is None
 
 
-def test_availability_question_with_an_order_still_orders():
+@pytest.mark.parametrize(
+    ("text", "intent", "it"),
+    [
+        ("cuanto me sale si quiero 10 en vez de 20?", Intent.UPDATE_QTY, item([FBT], 10, 20)),
+        ("cuanto me cobran si quiero 2 mas?", Intent.UPDATE_QTY, item([FBT], 2)),
+        ("necesito saber cuanto cuestan 10 frontlit?", Intent.UPDATE_QTY, item([FBT], 10)),
+        ("necesito saber cuanto cuestan 10 frontlit?", Intent.ADD_ITEMS, item([FBT], 10)),
+        ("necesito saber cuanto cuestan 10 frontlit?", Intent.CREATE_QUOTE, item([FBT], 10)),
+        ("y si tambien llevo 5 mesh, cuanto me sale?", Intent.ADD_ITEMS, item([MESH], 5)),
+        ("ponle 2 mas? cuanto sale", Intent.UPDATE_QTY, item([FBT], 2)),
+        ("tambien manejan acrilico dorado?", Intent.ADD_ITEMS, item([ACR], 1)),
+        ("cotizame 2 frontlit, cuanto me sale", Intent.CREATE_QUOTE, item([FBT], 2)),
+    ],
+)
+def test_price_or_availability_question_never_mutates_even_with_order_verbs(text, intent, it):
+    got = guard(text, interp(intent, it))
+    assert got is None or got.intent == Intent.QUERY
+
+
+def test_price_question_without_order_verb_is_a_query():
+    got = guard("cuanto me sale si llevo 10 frontlit?", interp(Intent.UPDATE_QTY, item([FBT], 10)))
+    assert got is not None
+    assert got.intent == Intent.QUERY
+
+
+def test_unknown_product_question_with_order_is_not_a_silent_noop():
     i = interp(Intent.ADD_ITEMS, ItemMention(mention="tela", sku_candidates=[], in_catalog=False))
-    assert guard("tienen tela canvas? necesito 5 rollos", i) is i
+    assert guard("tienen tela canvas? necesito 5 rollos", i) is None
+
+
+def test_plain_question_request_is_unchanged():
+    i = interp(Intent.ADD_ITEMS, item([FBT], 3))
+    assert guard("me cotizas 3 lonas?", i) is i
+
+
+def test_relative_change_with_a_later_negator_goes_to_review():
+    assert guard("ponle 2 mas, no 5", interp(Intent.UPDATE_QTY, item([FBT], 2))) is None
