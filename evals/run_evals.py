@@ -214,7 +214,7 @@ async def run(
         goldens = {k: v for k, v in goldens.items() if k in only}
 
     total = len(goldens)
-    progress = HERE / f".progress-{mode}.log"
+    progress = HERE / f".progress-{mode}{'.only' if only else ''}.log"
     progress.write_text("")
     done = 0
 
@@ -255,9 +255,10 @@ def main() -> None:
     ap.add_argument("--only", help="comma-separated case names to run")
     args = ap.parse_args()
     mode = args.mode
-    only = set(args.only.split(",")) if args.only else None
+    only = {n.strip() for n in args.only.split(",") if n.strip()} if args.only else None
     host = os.environ.get("EVAL_HOST") or socket.gethostname().split(".")[0]
-    progress = HERE / f".progress-{mode}.log"
+    tag = ".only" if only else ""  # filtered runs never touch the canonical files
+    progress = HERE / f".progress-{mode}{tag}.log"
     try:
         _, metrics, rows = asyncio.run(run(mode, only))
     except Exception as e:
@@ -266,8 +267,8 @@ def main() -> None:
         raise
     md = render_md(mode, host, metrics, rows)
     print("\n" + md)
-    base = HERE / f"results-{mode}-{host}"
-    base.with_suffix(".json").write_text(
+    base = HERE / f"results-{mode}-{host}{tag}"
+    base.with_name(base.name + ".json").write_text(
         json.dumps(
             {"mode": mode, "host": host, "metrics": metrics, "cases": rows},
             indent=2,
@@ -275,7 +276,7 @@ def main() -> None:
         )
         + "\n"
     )
-    base.with_suffix(".md").write_text(md)
+    base.with_name(base.name + ".md").write_text(md)
     with progress.open("a") as f:
         f.write(f"{mode} DONE\n")
 

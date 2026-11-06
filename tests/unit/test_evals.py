@@ -108,3 +108,27 @@ async def test_history_and_direction_reach_the_context():
     await run_case(g, ex, Catalog.from_json(CATALOG))
     assert ex.ctxs[0].history == [("outbound", "Quote Q-1?"), ("inbound", "yes")]
     assert ex.ctxs[0].direction == "inbound"
+
+
+def test_filtered_run_leaves_canonical_results_untouched(tmp_path, monkeypatch, capsys):
+    import sys
+
+    import evals.run_evals as ev
+
+    async def fake_run(mode, only=None):
+        assert only == {"a", "b"}  # whitespace stripped
+        e, r = pair("noop", "noop")
+        return None, summarize([(e, r)]), []
+
+    monkeypatch.setattr(ev, "HERE", tmp_path)
+    monkeypatch.setattr(ev, "run", fake_run)
+    monkeypatch.setenv("EVAL_HOST", "h")
+    canon = tmp_path / "results-rules-h.json"
+    canon.write_text("CANON")
+    (tmp_path / "results-rules-h.md").write_text("CANON")
+    monkeypatch.setattr(sys, "argv", ["x", "--mode", "rules", "--only", "a, b"])
+    ev.main()
+    assert canon.read_text() == "CANON"
+    assert (tmp_path / "results-rules-h.md").read_text() == "CANON"
+    assert (tmp_path / "results-rules-h.only.json").exists()
+    assert (tmp_path / "results-rules-h.only.md").exists()
