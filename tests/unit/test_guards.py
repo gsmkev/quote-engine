@@ -134,3 +134,27 @@ def test_mixed_add_and_set_goes_to_review():
 def test_plain_add_passes(text):
     i = interp(Intent.ADD_ITEMS, item([ACR], 2))
     assert guard(text, i) is i
+
+
+MICS_152 = "AVMICS-1A-152050"
+MATE_152 = "AVBLMT-1A-152050"
+
+
+def test_candidates_outside_the_named_alias_go_to_review():
+    # "one way" is only ever microperforado: a vinil mate pick is a wrong SKU
+    i = interp(Intent.CREATE_QUOTE, item([MATE_152], 2, mention="one way 1.52"))
+    assert guard("one way 1.52, 2 rollos", i) is None
+
+
+@pytest.mark.parametrize(
+    ("mention", "cands"),
+    [
+        ("one way 1.52", [MICS_152]),
+        ("vinil one way", [MICS_152]),
+        ("lonsa frontlit", [FBT]),  # typo: no alias to check against
+        ("esas", [MAG]),
+    ],
+)
+def test_candidates_within_the_named_alias_pass(mention, cands):
+    i = interp(Intent.CREATE_QUOTE, item(cands, 2, mention=mention))
+    assert guard("x", i) is i

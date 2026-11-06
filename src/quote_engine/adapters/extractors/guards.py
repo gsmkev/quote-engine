@@ -42,7 +42,21 @@ _MUTATING = {
 
 class Guard:
     def __init__(self, catalog: Catalog) -> None:
-        self._catalog = catalog
+        aliases: dict[str, set[str]] = {}
+        for it in catalog.items.values():
+            for a in it.aliases:
+                aliases.setdefault(norm(a), set()).add(it.sku)
+        self._aliases = aliases
+        longest = sorted(aliases, key=len, reverse=True)
+        self._alias_re = re.compile(r"\b(?:" + "|".join(map(re.escape, longest)) + r")\b")
+
+    def _off_alias(self, interp: MessageInterpretation) -> bool:
+        """An item whose candidates fall outside what its own mention's aliases allow."""
+        for it in interp.items:
+            hits = [self._aliases[m.group()] for m in self._alias_re.finditer(norm(it.mention))]
+            if hits and not set(it.sku_candidates) <= set.intersection(*hits):
+                return True
+        return False
 
     def __call__(
         self, text: str, interp: MessageInterpretation | None
@@ -55,7 +69,7 @@ class Guard:
             return interp.model_copy(update={"intent": Intent.QUERY})
         if _TEMPORAL.search(t):
             return None
-        if _UNIT.search(t) or (_ADDS.search(t) and _SETS.search(t)):
+        if self._off_alias(interp) or _UNIT.search(t) or (_ADDS.search(t) and _SETS.search(t)):
             return None
         if _SWAP.search(t) or (_MISTAKE.search(t) and not _DIGIT.search(t)):
             return None
