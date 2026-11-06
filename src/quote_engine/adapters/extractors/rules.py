@@ -50,6 +50,12 @@ _NO_N = re.compile(r"\bno\s+(\d+)")
 _NEGATED = re.compile(r"\bno (?:me |lo |la )?(?:cancel|anul)\w*")
 _SEPARATE = re.compile(r"\baparte\b|\botra cotizacion\b|\bpor separado\b")
 _DIM_REACH = 25
+# Words a bare cancel ("mejor cancelalo", "cancela todo porfa") may carry; anything else may
+# name what to cancel, which rules cannot judge.
+_CANCEL_FILLER = frozenset(
+    "mejor todo toda la el lo mi esa esta eso cotizacion pedido orden por favor porfa plis xfa "
+    "pls entonces ya y pues ok si bueno oye gracias".split()
+)
 
 
 def norm(text: str) -> str:
@@ -178,7 +184,8 @@ class RuleExtractor:
             raise _GiveUp
         sep = bool(_SEPARATE.search(t))
         if intent == Intent.CANCEL:
-            if hits:
+            rest = re.findall(r"[a-z]+", _CANCEL.sub(" ", t))
+            if hits or any(w not in _CANCEL_FILLER for w in rest):
                 raise _GiveUp
             return MessageInterpretation(intent=intent, explicit_quote_ids=ids, source="rules")
         if not hits:

@@ -98,10 +98,21 @@ async def test_extracts(text, intent, separate, items, ids):
         "cuanto cuestan 3 lonas",
         "no cancelen la cotizacion",
         "no cancela la cotizacion de las lonas",
+        "cancela lo del papel fotografico",  # cancel + unrecognised content is not a bare cancel
+        "cancela las playeras porfa",
     ],
 )
 async def test_gives_up(text):
     assert await extractor.interpret(ctx(text)) is None
+
+
+@pytest.mark.parametrize(
+    "text", ["mejor cancelalo", "cancela todo porfa", "cancela Q-002 por favor", "cancela todo"]
+)
+async def test_bare_cancel(text):
+    r = await extractor.interpret(ctx(text))
+    assert r is not None
+    assert (r.intent, r.items) == (Intent.CANCEL, [])
 
 
 async def test_cotizacion_is_not_add():
