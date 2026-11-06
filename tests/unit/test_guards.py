@@ -48,3 +48,19 @@ async def test_rules_output_is_guarded():
     r = await RuleExtractor(CATALOG).interpret(ctx)
     assert r is not None
     assert r.intent == Intent.QUERY
+
+
+MESH = "ALMCLC-0909-320100"
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["la de ayer cambiala a 10 rollos", "lo mismo que la vez pasada porfa", "la anterior, 5 mas"],
+)
+def test_temporal_reference_goes_to_review(text):
+    assert guard(text, interp(Intent.UPDATE_QTY, item([MESH], 10))) is None
+
+
+def test_temporal_question_is_untouched():
+    q = interp(Intent.QUERY)
+    assert guard("hacen envios? la otra vez tardaron", q) is q

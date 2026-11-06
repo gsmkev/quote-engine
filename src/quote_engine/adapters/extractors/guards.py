@@ -14,6 +14,11 @@ _PRICE_Q = re.compile(
     r"\bcuanto (?:me |nos )?(?:sale|salen|saldria|cuesta|cuestan|costaria|seria|serian|cobran)\b"
     r"|\bprecios?\b|\bme sale\b"
 )
+# "la de ayer", "lo mismo que la vez pasada": a quote we cannot see; never guess it
+_TEMPORAL = re.compile(
+    r"\b(?:ayer|antier|anteayer|vez pasada|otra vez|otro dia|semana pasada|mes pasado"
+    r"|la anterior|el anterior)\b"
+)
 _MUTATING = {
     Intent.CREATE_QUOTE,
     Intent.ADD_ITEMS,
@@ -36,4 +41,6 @@ class Guard:
         if _PRICE_Q.search(t):
             # "cuanto me sale si llevo 10 en vez de 20?" asks, it does not order
             return interp.model_copy(update={"intent": Intent.QUERY})
+        if _TEMPORAL.search(t):
+            return None
         return interp
