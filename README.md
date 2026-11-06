@@ -17,7 +17,7 @@ just up-gpu        # NVIDIA: reinstall the model runner with CUDA, then start th
 just down          # stop and wipe the database volume
 ```
 
-`scripts/demo.sh` posts Phase 1, then events 1–4 (printing the quotes after each), resends event 4 (duplicate), posts "mejor cancelalo" (review), prints the history of Q-002 and checks the final state against the challenge's expected JSON. On a CPU-only machine Phase 1 took ~80 s (round-1 measurement, 4-SKU catalog); `?wait=true` waits up to 300 s.
+`scripts/demo.sh` posts Phase 1, then events 1–4 (printing the quotes after each), resends event 4 (duplicate), posts "mejor cancelalo" (review), prints the history of Q-002 and checks the final state against the challenge's expected JSON. On a CPU-only machine Phase 1 took ~80 s (round-1 measurement, 4-SKU catalog); on an RTX 4050 laptop ~6.6 s. `?wait=true` waits up to 300 s.
 
 The API listens on `${API_PORT:-8000}` (`API_PORT=8080 just demo` if 8000 is taken). Postgres has no host port. Some calls:
 
@@ -230,10 +230,14 @@ Same evals on the 2-core ARM64 CPU VM (no GPU). The `cascade`/`llm` full runs th
 Reading:
 
 * **The cascade is the production mode and the best one**: 87% exact routing, and its only "wrong mutation" changes nothing (see §9). It skips the model for 42% of messages. 0 out-of-catalog products mapped to a SKU, 0 silent misses.
-* **Rules alone never mutated wrongly** (0 in 127) but give up on 70% of messages: they are a cheap, safe first stage, not a product.
+* **The review rate is not the production human-handoff rate.** The golden set is deliberately loaded with cases that *should* go to a human (40 of 127 — ambiguous cancels, unknown products, unresolvable references, ties). The cascade sends 56 cases to review: all 40 expected ones plus 16 unnecessary ones. So on this set, **12.6% of messages (16/127) reach a human needlessly** — 18% of the 87 cases that expect an action or a no-op. On the 23 round-1 cases the cascade sends to review exactly the 9 that expect it. The real rate depends on the traffic mix and should be measured on real chats.
+* **Rules alone never mutated wrongly** (0 in 127). They interpret 42% of messages on their own; in rules-only mode everything else goes to review (70% review rate, 49 of them unnecessary). A cheap, safe first stage, not a product.
 * **The LLM alone is worse and slower** than the cascade, and it is the only mode with a state-changing wrong mutation. The rules catch exactly the cases where the small model narrows or drops things.
 * **GPU vs CPU: same accuracy, ~25–40× lower latency.** Same model and code, so routing is identical within one case (87% vs 86%); cascade p50/p95 drop from 7.3 s / 153 s to 0.3 s / 4.0 s, and a Phase 1 extraction from ~80–130 s to ~6.6 s. On a laptop GPU the pipeline is real-time.
-* **What the 16 cascade safe misses are** (all go to a human, none change state): questions the broad Guard sends to review instead of a query/no-op (5), single-line removals caught by the relative-change safety rule (3), "N litros" of a 1 L SKU treated as an unsupported unit (1), swaps and two intents in one message the contract can't express (3), picking a quote by content among several open ones (3), an answer that depends on chat history (1).
+* **What the 16 cascade safe misses are** (all go to a human, none change state; from the per-case results):
+  * **The Guard refused the interpretation (8):** questions phrased with order words ("necesito factura…", "si llevo 10… en vez de 20?", "para ver si lo sumo a la Q-001"), variant swaps and add + set in one message (the contract can't express them), and cancels that name part of a quote or pick it by content.
+  * **The LLM didn't pin a SKU (3):** "quita el vinil" / "sácame las tintas" (removal with several plausible variants) and "4 litros" of a 1 L ink.
+  * **The router asked a human (5):** item-less logistics questions with several open quotes (2), "agrega" to a quote named by id or content that isn't the chat's (2 — adds route to the chat-linked quote), and a bare number answering the rep (1).
 * Round-1 numbers (23 cases, 4 SKUs: cascade 96%, llm 91%, rules 48% routing) are not comparable: different catalog, six re-ruled cases, and 100 harder cases.
 
 Full per-case output: `evals/results-<mode>-bazzite-rtx4050.{md,json}` (GPU) and `evals/results-<mode>-koeti-lab.{md,json}` (CPU).
