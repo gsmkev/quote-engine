@@ -286,6 +286,24 @@ class Extracts:
         )
 
 
+class ExtractsUnknown(Extracts):
+    async def extract_conversation(self, ctx):
+        lines = [ExtractedLine(sku=s, qty=q, evidence="x") for s, q in self.lines]
+        lines.append(ExtractedLine(sku=None, qty=3, evidence="lona 5x100", in_catalog=False))
+        return ConversationExtraction(items=lines)
+
+
+async def test_phase1_not_in_catalog_goes_to_review_without_quote(session_factory, catalog):
+    await ingest(session_factory, fx("phase1"))
+    await run_all(session_factory, ExtractsUnknown((FBT, 20)), catalog)
+    [row] = await inbox_rows(session_factory)
+    assert row.status == "needs_review"
+    [review] = await open_reviews(session_factory)
+    assert (review.reason, review.candidate_quote_ids) == ("unknown_product", [])
+    assert review.interpretation["items"][-1]["in_catalog"] is False
+    assert await state(session_factory, C) == []
+
+
 async def test_phase1_duplicate_skus_merged(session_factory, catalog):
     await ingest(session_factory, fx("phase1"))
     await run_all(session_factory, Extracts((FBT, 20), (MIC, 5), (FBT, 3)), catalog)

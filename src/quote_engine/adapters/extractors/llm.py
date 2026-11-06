@@ -28,6 +28,11 @@ Rules:
 - intent: create_quote | add_items | update_qty | remove_item | query | cancel | none.
 - Only use SKUs from the catalog. For each product mention, set sku_candidates to every \
 plausible SKU when the mention is ambiguous (e.g. "lonas" with no type or size matches several).
+- Check every stated size, thickness and colour against the catalog. If the requested product, \
+size, thickness or colour is NOT in the catalog, return the item with in_catalog=false and \
+sku_candidates=[]; never pick the closest SKU.
+- A new request for "lona" with no type means Frontlit; for references to lines already \
+discussed, list every plausible candidate instead.
 - Never invent quantities: qty is null unless the message states it.
 - For update_qty ("mejor que sean 15, no 20"): qty is the new quantity, previous_qty the old one.
 - explicit_quote_ids: quote ids like Q-001 mentioned in the message.
@@ -35,6 +40,10 @@ plausible SKU when the mention is ambiguous (e.g. "lonas" with no type or size m
 - For add_items, update_qty and remove_item, items MUST list every product the message refers \
 to, resolving vague mentions ("las lonas", "esas") with the earlier messages; never leave items \
 empty for them. items is empty only for cancel, none, or a query without products.
+
+Example: MESSAGE "cotizame 2 acrilicos negros de 10mm" (no such thickness) -> intent \
+create_quote, items [{{mention: "acrilicos negros de 10mm", sku_candidates: [], in_catalog: \
+false, qty: 2}}].
 
 Example: earlier "Necesito 10 rollos de mesh 3.20x100", MESSAGE "mejor que sean 8 \
 de los mesh, no 10" -> intent update_qty, items [{{mention: "los mesh", sku_candidates: \
@@ -53,6 +62,9 @@ Rules:
 and the customer agrees).
 - Only emit items with BOTH a confirmed variant (exactly one SKU) and a quantity stated by \
 the customer. Never invent quantities.
+- If the customer wants a product, size, thickness or colour that is NOT in the catalog, emit \
+the item with in_catalog=false and sku=null; never pick the closest SKU.
+- "lona" with no type means Frontlit.
 - Skip variants the rep said are unavailable and anything not confirmed.
 - evidence: a short quote from the conversation supporting the item.
 """

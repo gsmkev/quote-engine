@@ -52,3 +52,10 @@ async def test_never_foreign_sku(llm, catalog):
     r = await llm.interpret(msg("cotizame 3 lonas de 5x100"))
     if r is not None:
         assert all(s in catalog.items for i in r.items for s in i.sku_candidates)
+
+
+async def test_not_in_catalog_flagged(llm):
+    r = await llm.interpret(msg("cotizame 3 lonas de 5x100"))
+    assert r is not None
+    assert not any(i.sku_candidates for i in r.items)
+    assert any(not i.in_catalog for i in r.items)

@@ -182,13 +182,18 @@ async def _conversation(
         extraction = await extractor.extract_conversation(ctx)
         latency_ms = round((time.perf_counter() - t0) * 1000, 1)
         if extraction and any(
-            i.sku is None or i.sku not in catalog.items for i in extraction.items
+            i.sku is not None and i.sku not in catalog.items for i in extraction.items
         ):
             log.warning("foreign_sku_rejected", extraction=extraction.model_dump(mode="json"))
             extraction = None
         log.info("interpreted", latency_ms=latency_ms)
-        if extraction and extraction.items:
-            decision = NewQuote(merge_lines([(i.sku, i.qty) for i in extraction.items if i.sku]))
+        if extraction and any(not i.in_catalog for i in extraction.items):
+            # no partial quote: a product we don't sell sends the whole conversation to a human
+            decision = Review("unknown_product", [], None)
+        elif extraction and extraction.items:
+            decision = NewQuote(
+                merge_lines([(i.sku, i.qty) for i in extraction.items if i.sku is not None])
+            )
         else:
             decision = Review("extraction_failed", [v.id for v in views], None)
     extraction_json = extraction.model_dump(mode="json") if extraction else None
