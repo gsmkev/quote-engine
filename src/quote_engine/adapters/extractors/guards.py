@@ -102,6 +102,10 @@ class Guard:
     ) -> MessageInterpretation | None:
         if interp is None:
             return None
+        if any(it.qty_delta is not None for it in interp.items):
+            # only _relative may set a delta, from the text; never trust one from an extractor
+            items = [it.model_copy(update={"qty_delta": None}) for it in interp.items]
+            interp = interp.model_copy(update={"items": items})
         t = norm(text)
         orders = _ORDER.search(t) or _ADDS.search(t)
         if interp.intent not in _MUTATING:

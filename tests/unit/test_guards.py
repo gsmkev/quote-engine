@@ -209,6 +209,16 @@ def test_relative_increase_never_reaches_a_new_line():
     assert isinstance(route(got, "c1", []), Review)
 
 
+def test_extractor_supplied_qty_delta_is_dropped():
+    leaked = ItemMention(mention="x", sku_candidates=[FBT], qty=5, qty_delta=-3)
+    got = guard("mejor que sean 5 las frontlit", interp(Intent.UPDATE_QTY, leaked))
+    assert got is not None
+    assert got.items[0].qty_delta is None
+    q = guard("hola", interp(Intent.QUERY, leaked))
+    assert q is not None
+    assert q.items[0].qty_delta is None
+
+
 @pytest.mark.parametrize(
     ("text", "intent"),
     [
