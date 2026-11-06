@@ -33,7 +33,7 @@ Low-level design. Read the [HLD](HLD.md) first. This document fixes schemas, con
 │       ├── extractors/       # rules.py, guards.py, text.py, llm.py, cascade.py, replay.py, factory.py
 │       └── api/              # app.py, routes.py, schemas.py
 ├── fixtures/                 # catalog.json (39 SKUs, source of truth), challenge/*.json, llm_replay/<sha256>.json
-├── evals/                    # golden.jsonl (123 cases), run_evals.py, results-<mode>-<host>.{md,json}, FAILURES.md
+├── evals/                    # golden.jsonl (127 cases), run_evals.py, results-<mode>-<host>.{md,json}, FAILURES.md
 ├── scripts/                  # demo.sh, record_replay.py
 ├── tests/                    # unit/, integration/ (testcontainers), llm/
 └── docs/                     # HLD.md, LLD.md
@@ -339,16 +339,17 @@ class Extractor(Protocol):
 **`Guard`** (`guards.py`) — deterministic post-extraction safety net, applied to the output of **every** extractor (`RuleExtractor`, `LLMExtractor`, `ReplayExtractor`), reading the raw text. It never adds a mutation: it returns the interpretation unchanged, rewrites a relative change, or returns `None` (rules: fall back to the LLM; LLM/replay: review `extraction_failed`).
 
 * Any `qty_delta` coming from an extractor is dropped; only the Guard sets it.
-* **Non-mutating intents** (`query`, `none`): `None` if the text carries an order verb (`cotiza*`, `necesito`, `mandame`, `quiero`, `agrega*`, `sumale`, `ponle`, `dame`, …) or a set-quantity marker with a number, or if it is hedged and an item carries a qty. An order is never a silent no-op.
+* **Non-mutating intents** (`query`, `none`): `None` if the text carries an order verb (`cotiza*`, `necesito`, `mandame`, `quiero`, `agrega*`, `sumale`, `ponle`, `dame`, …) (also `mandenme`, `te encargo`, `pido`, `compro`, `requiero`, `enviame`) or a set-quantity marker with a number, or if any item carries a qty ("van 10 lonas" read as `none`). An order is never a silent no-op.
 * **Mutating intents** (`create_quote`, `add_items`, `update_qty`, `remove_item`, `cancel`) → `None` when the text is:
   * **non-assertive**: `?`/`¿`, `cuanto`, price/cost words, a conditional `si <word>` (not "si, …" or "si mandame…"), hedges and deferrals (`quizas`, `tal vez`, `a lo mejor`, `serian`, `te confirmo`, `te aviso`, `cuando`, `apenas`, `estamos viendo`, `me interesa`, `probablemente`, ranges `5 o 10` / `entre 5 y 10`, …). "cotizame 10 rollos con precio" (no `?`) stays an order;
   * **negated** (`no|ni|sin|tampoco|nunca|jamas|olvidalo…`), except a previous quantity ("sean 15, no 20", "no eran 3 eran 5") and the removal phrasing "ya no quiero el X" on a remove/cancel;
-  * a **temporal reference** to a quote we cannot see (`ayer`, `la vez pasada`, `la anterior`, …);
+  * a **temporal reference** to a quote we cannot see (`ayer`, `antepasado`, `la vez pasada`, `la otra vez`, `lo de siempre`, `la anterior`, …);
   * an item-less **cancel** that names something (only a bare or whole-quote cancel passes);
   * **off-alias**: an item's candidates fall outside what its own mention's aliases allow (e.g. the LLM reading "one way" as vinil mate);
   * a **unit** we do not sell by (`galones`, `kg`, `cajas`, `metros`, …);
   * add and set-quantity markers together; a **swap** ("era el blanco no el transparente", "no quiero X sino Y", "en vez de X mejor Y") or "me equivoque" without a number.
-* **Relative changes** (`_relative`): "quitale 2" / "2 menos" / "ponle 2 mas" are read from the text, never from the extractor's qty. Valid only for exactly one in-catalog item, no negator and not both directions; the result is `update_qty` with `qty_delta=±N` and no qty, which the router applies only to a unique existing line. "N mas" on an `add_items` is left as an add (an add already means "on top of").
+* **Relative changes** (`_relative`): "quitale 2" / "borrale dos" / "5 lonas menos" / "ponle 5 lonas mas" / "otras 5" are read from the text (digits or number words up to "quince", tens, "cien"; up to two words between the number and `mas`/`menos`), never from the extractor's qty. Valid only for exactly one in-catalog item, no negator and not both directions; the result is `update_qty` with `qty_delta=±N` and no qty, which the router applies only to a unique existing line. "N mas" on an `add_items` is left as an add (an add already means "on top of"). A relative cue it cannot read ("quitale unas 3", "10 rollos de mesh mas", "veintitres menos") → `None`: the extractor's absolute qty would be a guess. "bajale a 10" is an absolute target, not a cue.
+* **Rule names.** Every give-up logs `guard_rejected rule=<name> text=<normalised text>` (structlog, so it carries the bound `inbox_seq`/`message_id`): `ordered`, `counted`, `hedged`, `negated`, `temporal`, `cancel_unnamed`, `off_alias`, `unit`, `add_and_set`, `swap`, `mistake`, `relative`. The return contract stays `None`, so in the inbox trace a Guard rejection still reads as `extraction_failed`; the log line tells it apart from a model failure.
 
 Broad on purpose: a false "not assertive" costs a review; a false "assertive" costs a wrong quote.
 
@@ -480,12 +481,12 @@ In one transaction:
 | Unit — router | pytest, parametrized | table in §5 |
 | Unit — aggregate | pytest | invariants, all-or-nothing batches, idempotent no-ops, events, version bump |
 | Unit — rules | pytest, parametrized | the 4 challenge events + cancel → exact interpretation; attribute filter (sizes, thickness, colour, weave, not-in-catalog); tricky phrasings → `None` |
-| Unit — guard | pytest, parametrized | questions, hedges, conditionals, negations, swaps, units, temporal references → `None`; relative "quitale N" / "N mas" → `qty_delta`; extractor-supplied `qty_delta` dropped |
+| Unit — guard | pytest, parametrized | questions, hedges, conditionals, negations, swaps, units, temporal references → `None`; relative "quitale N" / "N mas" / number words → `qty_delta`, unreadable relative cues → `None`; extractor-supplied `qty_delta` dropped; rule name logged per rejection |
 | Unit — catalog filter | pytest | family detection incl. typos; full-catalog fallback |
 | Unit — extractors / contracts | pytest | cascade fallback, replay hit/miss/invalid, LLM schema carries the SKU enum and hides `qty_delta`, `in_catalog` validators, foreign SKU rejected |
 | Integration | pytest + testcontainers `postgres:17` + replay extractor + httpx `ASGITransport` | Phase 1 → Q-001; events 1–4 with state asserted after each, final == challenge JSON; restart (new engine) → same state; Phase 1 with a not-in-catalog item → review `unknown_product`, no quote; event 4 resent → duplicate, version unchanged; same text with a new id → applied; "mejor cancelalo" → review, no change; resolve stale → 409, resolve OK → cancelled with `review_id` in history; re-posted conversation → review; max attempts → failed; `DomainError` while executing → review `invalid_ops`; duplicate SKUs merged; conversation review resolved into a new quote; invalid resolution ops → 422; two concurrent workers keep per-customer order; failure bookkeeping keeps the row locked |
 | LLM (`-m llm`) | real Docker Model Runner | Phase 1 sample → exact 3 lines; fallback phrasings; never a foreign SKU; "lona 5x100" → `in_catalog=false` |
-| Evals | pydantic-evals, `just eval mode=…` | 123-case golden set (23 legacy + 100 round-2 cases in 13 categories; optional `direction`, `history`, `category` per case): intent acc, SKU-set acc, routing acc (target **and** ops), % rules, p50/p95, review rate, wrong mutations, safe misses, per-category table; modes `cascade` / `llm` / `rules`; `--only a,b` writes `.only` files and never touches the canonical results; per-case progress in `evals/.progress-<mode>.log`; failures classified in `evals/FAILURES.md` |
+| Evals | pydantic-evals, `just eval mode=…` | 127-case golden set (23 legacy + 104 round-2 cases in 13 categories; optional `direction`, `history`, `category` per case): intent acc, SKU-set acc, routing acc (target **and** ops), % rules, p50/p95, review rate, wrong mutations, safe misses, per-category table; modes `cascade` / `llm` / `rules`; `--only a,b` (even an empty list) writes `.only` files and never touches the canonical results; per-case progress in `evals/.progress-<mode>.log`; failures classified in `evals/FAILURES.md` |
 
 ## 14. Docker and justfile essentials
 

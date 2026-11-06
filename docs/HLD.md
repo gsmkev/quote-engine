@@ -209,7 +209,7 @@ With two open quotes, *"mejor cancelalo"* has no content signal.
 
 That is less than 1 message per minute on average, with business-hour bursts. In order:
 
-1. **LLM throughput.** On the 2-core CPU VM a warm LLM fallback takes ~27 s (more with long history) and a Phase 1 extraction ~80 s, with one request at a time; a burst queues up behind it. The cascade keeps the common phrasing off the LLM; a GPU (`just up-gpu`) is the first real fix, then parallel slots, then vLLM with continuous batching.
+1. **LLM throughput.** On the 2-core CPU VM a warm LLM fallback takes ~27 s (more with long history) and a Phase 1 extraction took ~80 s (round-1 measurement, 4-SKU catalog), with one request at a time; a burst queues up behind it. The cascade keeps the common phrasing off the LLM; a GPU (`just up-gpu`) is the first real fix, then parallel slots, then vLLM with continuous batching.
 2. **LLM call inside the transaction.** The worker holds a DB connection, the row lock and the customer's advisory lock during the model call. Fine at one worker; with many workers it pins connections. Next: two-phase processing (interpret outside the transaction, then re-read and route inside it with a version check).
 3. **Catalog size.** Already visible at 39 SKUs: the full table + `enum` in every prompt made a CPU call take 54–205 s. A deterministic family pre-filter (`relevant_skus`: alias tokens, typo tolerant) now sends only the families the message mentions (~27 s warm). At thousands of SKUs the next step is retrieval (Postgres FTS / pgvector) for a top-k dynamic enum per message.
 4. **Human review throughput.** Track the review rate as a product KPI.
