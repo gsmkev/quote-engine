@@ -183,5 +183,9 @@ def route(
         for sku, qty in targets.items():
             ops.append(RemoveLine(sku) if qty is None else SetQty(sku, qty))
     if intent is Intent.CANCEL:
+        named = {k for it in interp.items for k in it.sku_candidates}
+        if interp.items and not q.lines.keys() <= named:
+            # The products named are only part of the quote: a line removal, not a cancel.
+            return Review("ambiguous_line", [q.id], None)
         ops.append(Cancel())
     return Apply(q.id, ops)

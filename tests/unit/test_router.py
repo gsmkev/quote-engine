@@ -402,6 +402,14 @@ DEFAULT_CASES = [
         [Q1_FULL, qv("Q-002", {ACR: 2})],
         Apply("Q-002", [LinkConversation("411"), Cancel()]),
     ),
+    (
+        # "cancela el microperforado nomas": naming one line of several is not a whole cancel
+        "cancel-names-part-of-quote",
+        interp(Intent.CANCEL, [mention([MIC])]),
+        "411",
+        [Q1_FULL],
+        Review("ambiguous_line", ["Q-001"], None),
+    ),
 ]
 
 
