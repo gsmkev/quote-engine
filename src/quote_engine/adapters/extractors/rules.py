@@ -43,7 +43,6 @@ _NEGATOR = re.compile(r"\b(?:no|sin|excepto|menos|salvo)\b")
 _NUM = re.compile(r"\d+")
 _QTY = re.compile(r"\b(?:sean|seria|serian|a)\s+(\d+)(?!\.?\d)(?:\s*,?\s*no\s+(\d+)(?!\.?\d))?")
 _UNIT = re.compile(r"\s+(?:rollos?|piezas?|unidades?|planchas?|laminas?)\b")
-_CANCEL = CANCEL
 _UPDATE = re.compile(r"\bmejor (?:que )?sean\b|\b(?:que|q) sean\b|\bcambia\w*|\ben vez de\b")
 _ADD = re.compile(
     r"\bcoti[zs]a(?:me|s|r|nos)?\b|\bagrega\w*|\bsuma(?:le|les|me)?\b|\btambien\b"
@@ -203,7 +202,7 @@ class RuleExtractor:
     @staticmethod
     def _intent(t: str) -> Intent | None:
         for pattern, intent in (
-            (_CANCEL, Intent.CANCEL),
+            (CANCEL, Intent.CANCEL),
             (_UPDATE, Intent.UPDATE_QTY),
             (_ADD, Intent.ADD_ITEMS),
             (_QUERY, Intent.QUERY),
