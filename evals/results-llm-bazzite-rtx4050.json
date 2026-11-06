@@ -1,0 +1,2808 @@
+{
+  "mode": "llm",
+  "host": "bazzite-rtx4050",
+  "metrics": {
+    "n": 127,
+    "routing_acc": 0.8267716535433071,
+    "wrong_mutations": 2,
+    "safe_misses": 20,
+    "intent_acc": 0.7716535433070866,
+    "sku_acc": 0.8031496062992126,
+    "pct_rules": 0.0,
+    "p50_ms": 2036.80254199935,
+    "p95_ms": 5005.340181000065,
+    "review_rate": 0.4645669291338583,
+    "per_category": {
+      "legacy": {
+        "n": 23,
+        "routing_acc": 0.9565217391304348,
+        "wrong_mutations": 0,
+        "safe_misses": 1
+      },
+      "catalog_new": {
+        "n": 9,
+        "routing_acc": 0.8888888888888888,
+        "wrong_mutations": 1,
+        "safe_misses": 0
+      },
+      "typos_slang": {
+        "n": 8,
+        "routing_acc": 0.875,
+        "wrong_mutations": 0,
+        "safe_misses": 1
+      },
+      "units_quantities": {
+        "n": 11,
+        "routing_acc": 0.9090909090909091,
+        "wrong_mutations": 0,
+        "safe_misses": 1
+      },
+      "multi_item": {
+        "n": 7,
+        "routing_acc": 0.8571428571428571,
+        "wrong_mutations": 0,
+        "safe_misses": 1
+      },
+      "corrections": {
+        "n": 8,
+        "routing_acc": 0.625,
+        "wrong_mutations": 1,
+        "safe_misses": 2
+      },
+      "partial_remove": {
+        "n": 6,
+        "routing_acc": 0.6666666666666666,
+        "wrong_mutations": 0,
+        "safe_misses": 2
+      },
+      "out_of_catalog": {
+        "n": 16,
+        "routing_acc": 0.9375,
+        "wrong_mutations": 0,
+        "safe_misses": 1
+      },
+      "questions_noop": {
+        "n": 8,
+        "routing_acc": 0.625,
+        "wrong_mutations": 0,
+        "safe_misses": 3
+      },
+      "references": {
+        "n": 6,
+        "routing_acc": 0.8333333333333334,
+        "wrong_mutations": 0,
+        "safe_misses": 1
+      },
+      "multi_quote": {
+        "n": 7,
+        "routing_acc": 0.42857142857142855,
+        "wrong_mutations": 0,
+        "safe_misses": 4
+      },
+      "voice_note": {
+        "n": 6,
+        "routing_acc": 0.8333333333333334,
+        "wrong_mutations": 0,
+        "safe_misses": 1
+      },
+      "rep_outbound": {
+        "n": 5,
+        "routing_acc": 1.0,
+        "wrong_mutations": 0,
+        "safe_misses": 0
+      },
+      "cancel": {
+        "n": 7,
+        "routing_acc": 0.7142857142857143,
+        "wrong_mutations": 0,
+        "safe_misses": 2
+      }
+    }
+  },
+  "cases": [
+    {
+      "name": "event1",
+      "text": "Oye de las lonas mejor que sean 15, no 20",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALBKOC-013-220100",
+          "ALBKOC-013-250100",
+          "ALBKOC-013-320050",
+          "ALBKOC-013-320100",
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALBKOC-013-220100",
+          "ALBKOC-013-250100",
+          "ALBKOC-013-320050",
+          "ALBKOC-013-320100",
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]",
+        "source": "llm",
+        "latency_ms": 7551.950340000076
+      }
+    },
+    {
+      "name": "event2",
+      "text": "Buen dia, soy Mario de compras de ACME. Alice me pasó con ustedes, me confirmas qué lleva la cotización de las lonas?",
+      "expected": {
+        "intent": "query",
+        "skus": [
+          "ALBKOC-013-220100",
+          "ALBKOC-013-250100",
+          "ALBKOC-013-320050",
+          "ALBKOC-013-320100",
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "apply:Q-001[]"
+      },
+      "got": {
+        "intent": "query",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 265.46026700088987
+      }
+    },
+    {
+      "name": "event3",
+      "text": "y aparte cotizame 2 acrilicos blancos de 3mm porfa",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ARACBL-03-122244"
+        ],
+        "decision": "new[ARACBL-03-122244=2]"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ARACBL-03-122244"
+        ],
+        "decision": "new[ARACBL-03-122244=2]",
+        "source": "llm",
+        "latency_ms": 1774.9475029995665
+      }
+    },
+    {
+      "name": "event4",
+      "text": "perfecto. y de los acrilicos que cotizó Alice, mejor que sean 4",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ARACBL-02-122244",
+          "ARACBL-03-122244",
+          "ARACBL-05-122244",
+          "ARACNG-03-122244",
+          "ARACTR-03-122244",
+          "ARACTR-05-122244"
+        ],
+        "decision": "apply:Q-002[set_qty:ARACBL-03-122244=4]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ARACBL-02-122244",
+          "ARACBL-03-122244",
+          "ARACBL-05-122244",
+          "ARACNG-03-122244",
+          "ARACTR-03-122244",
+          "ARACTR-05-122244"
+        ],
+        "decision": "apply:Q-002[set_qty:ARACBL-03-122244=4]",
+        "source": "llm",
+        "latency_ms": 3248.448162999921
+      }
+    },
+    {
+      "name": "cancel-ambiguous",
+      "text": "mejor cancelalo",
+      "expected": {
+        "intent": "cancel",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "cancel",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 796.1618219997035
+      }
+    },
+    {
+      "name": "para-frontlit",
+      "text": "que sean 15 las frontlit",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]",
+        "source": "llm",
+        "latency_ms": 3321.982549000495
+      }
+    },
+    {
+      "name": "para-suma-mesh",
+      "text": "súmale 1 rollo de mesh",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALMCLC-0909-320100=6]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALMCLC-0909-320100=6]",
+        "source": "llm",
+        "latency_ms": 1817.6673230000233
+      }
+    },
+    {
+      "name": "para-vinil-a-8",
+      "text": "cambiame los vinil a 8 mejor",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "AVBLBR-1A-106050",
+          "AVBLBR-1A-127050",
+          "AVBLBR-1A-137050",
+          "AVBLBR-1A-152050",
+          "AVBLMT-1A-106050",
+          "AVBLMT-1A-137050",
+          "AVBLMT-1A-152050",
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050",
+          "AVTRAN-1A-106050",
+          "AVTRAN-1A-137050",
+          "AVTRAN-1A-152050"
+        ],
+        "decision": "apply:Q-001[set_qty:AVMICS-1A-137050=8]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "AVBLBR-1A-106050",
+          "AVBLBR-1A-127050",
+          "AVBLBR-1A-137050",
+          "AVBLBR-1A-152050",
+          "AVBLMT-1A-106050",
+          "AVBLMT-1A-137050",
+          "AVBLMT-1A-152050",
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050",
+          "AVTRAN-1A-106050",
+          "AVTRAN-1A-137050",
+          "AVTRAN-1A-152050"
+        ],
+        "decision": "apply:Q-001[set_qty:AVMICS-1A-137050=8]",
+        "source": "llm",
+        "latency_ms": 5005.340181000065
+      }
+    },
+    {
+      "name": "para-ya-no-micro",
+      "text": "ya no quiero el microperforado",
+      "expected": {
+        "intent": "remove_item",
+        "skus": [
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050"
+        ],
+        "decision": "apply:Q-001[remove:AVMICS-1A-137050]"
+      },
+      "got": {
+        "intent": "remove_item",
+        "skus": [
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050"
+        ],
+        "decision": "apply:Q-001[remove:AVMICS-1A-137050]",
+        "source": "llm",
+        "latency_ms": 1716.0685979997652
+      }
+    },
+    {
+      "name": "para-agrega-acrilicos",
+      "text": "me puedes agregar 3 acrilicos blancos",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ARACBL-02-122244",
+          "ARACBL-03-122244",
+          "ARACBL-05-122244"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ARACBL-02-122244",
+          "ARACBL-03-122244",
+          "ARACBL-05-122244"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 2365.9722060001513
+      }
+    },
+    {
+      "name": "para-new-mesh",
+      "text": "necesito 10 rollos de mesh 9x9",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 2434.215457999926
+      }
+    },
+    {
+      "name": "typo-acrilcos",
+      "text": "cotizame 3 acrilcos blancos",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [
+          "ARACBL-02-122244",
+          "ARACBL-03-122244",
+          "ARACBL-05-122244"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 5943.509460999849
+      }
+    },
+    {
+      "name": "typo-lonsa",
+      "text": "necesito 6 lonsa frontlit",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 3650.5908710005315
+      }
+    },
+    {
+      "name": "typo-microperforadso",
+      "text": "mejor que sean 12 los microperforadso",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050"
+        ],
+        "decision": "apply:Q-001[set_qty:AVMICS-1A-137050=12]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050"
+        ],
+        "decision": "apply:Q-001[set_qty:AVMICS-1A-137050=12]",
+        "source": "llm",
+        "latency_ms": 2078.4923239998534
+      }
+    },
+    {
+      "name": "words-diez-mesh",
+      "text": "cotizame diez rollos de lona mesh",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 2453.4335190001
+      }
+    },
+    {
+      "name": "words-quince-frontlit",
+      "text": "mejor que sean quince las frontlit, no veinte",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]",
+        "source": "llm",
+        "latency_ms": 3214.8612569999386
+      }
+    },
+    {
+      "name": "words-dos-acrilicos",
+      "text": "agrega dos acrilicos blancos",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ARACBL-02-122244",
+          "ARACBL-03-122244",
+          "ARACBL-05-122244"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ARACBL-02-122244",
+          "ARACBL-03-122244",
+          "ARACBL-05-122244"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 2869.927939000263
+      }
+    },
+    {
+      "name": "trap-lona-5x100",
+      "text": "necesito lona 5x100",
+      "expected": {
+        "intent": "add_items",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 1832.7154789994893
+      }
+    },
+    {
+      "name": "trap-gracias",
+      "text": "gracias!",
+      "expected": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop",
+        "source": "llm",
+        "latency_ms": 338.2266050002727
+      }
+    },
+    {
+      "name": "trap-ok-atento",
+      "text": "ok quedo atento",
+      "expected": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop",
+        "source": "llm",
+        "latency_ms": 190.07114000032743
+      }
+    },
+    {
+      "name": "trap-lonas-sin-tipo",
+      "text": "mejor que sean 15 las lonas",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALBKOC-013-220100",
+          "ALBKOC-013-250100",
+          "ALBKOC-013-320050",
+          "ALBKOC-013-320100",
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALBKOC-013-220100",
+          "ALBKOC-013-250100",
+          "ALBKOC-013-320050",
+          "ALBKOC-013-320100",
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 4916.431538999859
+      }
+    },
+    {
+      "name": "id-cancel-q2",
+      "text": "cancela Q-002 por favor",
+      "expected": {
+        "intent": "cancel",
+        "skus": [],
+        "decision": "apply:Q-002[cancel]"
+      },
+      "got": {
+        "intent": "cancel",
+        "skus": [],
+        "decision": "apply:Q-002[cancel]",
+        "source": "llm",
+        "latency_ms": 846.2767330001952
+      }
+    },
+    {
+      "name": "id-q1-mesh",
+      "text": "en Q-001 pon 8 de las lonas mesh",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALMCLC-0909-320100=8]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALMCLC-0909-320100=8]",
+        "source": "llm",
+        "latency_ms": 2312.513095000213
+      }
+    },
+    {
+      "name": "cn-sintra-5mm",
+      "text": "cotizame 5 sintras de 5mm porfa",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [
+          "APPVEB-05-122244"
+        ],
+        "decision": "new[APPVEB-05-122244=5]"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "APPVEB-05-122244"
+        ],
+        "decision": "new[APPVEB-05-122244=5]",
+        "source": "llm",
+        "latency_ms": 1800.2071020000585
+      }
+    },
+    {
+      "name": "cn-vinil-mate-152",
+      "text": "necesito 3 rollos de vinil mate 1.52",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "AVBLMT-1A-152050"
+        ],
+        "decision": "new[AVBLMT-1A-152050=3]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "AVBLMT-1A-152050"
+        ],
+        "decision": "new[AVBLMT-1A-152050=3]",
+        "source": "llm",
+        "latency_ms": 1867.9358009994758
+      }
+    },
+    {
+      "name": "cn-tinta-cyan",
+      "text": "buenas! cotizame 4 tintas cyan",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [
+          "ATECYN-1L-001000"
+        ],
+        "decision": "new[ATECYN-1L-001000=4]"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ATECYN-1L-001000"
+        ],
+        "decision": "new[ATECYN-1L-001000=4]",
+        "source": "llm",
+        "latency_ms": 1725.0776110004153
+      }
+    },
+    {
+      "name": "cn-laminado-brillante",
+      "text": "quiero 2 rollos de laminado brillante",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALAMBR-01-137050"
+        ],
+        "decision": "new[ALAMBR-01-137050=2]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALAMBR-01-137050"
+        ],
+        "decision": "new[ALAMBR-01-137050=2]",
+        "source": "llm",
+        "latency_ms": 1646.7446239994388
+      }
+    },
+    {
+      "name": "cn-acrilico-negro",
+      "text": "cotizame 6 acrilicos negros",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [
+          "ARACNG-03-122244"
+        ],
+        "decision": "new[ARACNG-03-122244=6]"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ARACNG-03-122244"
+        ],
+        "decision": "new[ARACNG-03-122244=6]",
+        "source": "llm",
+        "latency_ms": 2067.225365000013
+      }
+    },
+    {
+      "name": "cn-blackout-220",
+      "text": "necesito 10 rollos de lona blackout 2.20",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALBKOC-013-220100"
+        ],
+        "decision": "new[ALBKOC-013-220100=10]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALBKOC-013-220100"
+        ],
+        "decision": "new[ALBKOC-013-220100=10]",
+        "source": "llm",
+        "latency_ms": 1784.7841849998076
+      }
+    },
+    {
+      "name": "cn-lona-220-default",
+      "text": "cotizame 8 rollos de lona 2.20",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [
+          "ALBKOC-013-220100",
+          "ALFBTC-013-220100"
+        ],
+        "decision": "new[ALFBTC-013-220100=8]"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ALFBTC-013-220100"
+        ],
+        "decision": "new[ALFBTC-013-220100=8]",
+        "source": "llm",
+        "latency_ms": 1648.5497419998865
+      }
+    },
+    {
+      "name": "cn-lona-250-length-open",
+      "text": "cotizame 8 lonas de 2.50",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [
+          "ALBKOC-013-250100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALMCLC-0909-250100"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ALBKOC-013-250100",
+          "ALFBTC-013-250100",
+          "ALMCLC-0909-250100"
+        ],
+        "decision": "new[ALFBTC-013-250100=8]",
+        "source": "llm",
+        "latency_ms": 2251.3250189995233
+      }
+    },
+    {
+      "name": "cn-add-vinil-transparente",
+      "text": "agregale 2 rollos de vinil transparente 1.37",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "AVTRAN-1A-137050"
+        ],
+        "decision": "apply:Q-001[add:AVTRAN-1A-137050=2]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "AVTRAN-1A-137050"
+        ],
+        "decision": "apply:Q-001[add:AVTRAN-1A-137050=2]",
+        "source": "llm",
+        "latency_ms": 2215.925139999854
+      }
+    },
+    {
+      "name": "ts-trovicel",
+      "text": "nesesito 4 planchas de trovicel de 5mm xfa",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "APPVEB-05-122244"
+        ],
+        "decision": "new[APPVEB-05-122244=4]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "APPVEB-05-122244"
+        ],
+        "decision": "new[APPVEB-05-122244=4]",
+        "source": "llm",
+        "latency_ms": 2122.572520000176
+      }
+    },
+    {
+      "name": "ts-malla",
+      "text": "cotisame 2 rollos de malla 2.50 x100",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [
+          "ALMCLC-0909-250100"
+        ],
+        "decision": "new[ALMCLC-0909-250100=2]"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ALMCLC-0909-250100"
+        ],
+        "decision": "new[ALMCLC-0909-250100=2]",
+        "source": "llm",
+        "latency_ms": 2260.424510000121
+      }
+    },
+    {
+      "name": "ts-black-out",
+      "text": "sumale 3 rollos de black out 3.20x100 porfa 🙏",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALBKOC-013-320100"
+        ],
+        "decision": "apply:Q-001[add:ALBKOC-013-320100=3]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALBKOC-013-320100"
+        ],
+        "decision": "apply:Q-001[add:ALBKOC-013-320100=3]",
+        "source": "llm",
+        "latency_ms": 1779.989571000442
+      }
+    },
+    {
+      "name": "ts-vinilo",
+      "text": "kiero 5 vinilos transparentes de 1.06",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "AVTRAN-1A-106050"
+        ],
+        "decision": "new[AVTRAN-1A-106050=5]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "AVTRAN-1A-106050"
+        ],
+        "decision": "new[AVTRAN-1A-106050=5]",
+        "source": "llm",
+        "latency_ms": 2169.7122620007576
+      }
+    },
+    {
+      "name": "ts-acrilco-negro",
+      "text": "10 acrilcos negros d 3mm x fa",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ARACNG-03-122244"
+        ],
+        "decision": "new[ARACNG-03-122244=10]"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ARACNG-03-122244"
+        ],
+        "decision": "new[ARACNG-03-122244=10]",
+        "source": "llm",
+        "latency_ms": 2174.06445800043
+      }
+    },
+    {
+      "name": "ts-one-way",
+      "text": "one way 1.52, 2 rollos",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "AVMICS-1A-152050"
+        ],
+        "decision": "new[AVMICS-1A-152050=2]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "AVMICS-1A-152050"
+        ],
+        "decision": "new[AVMICS-1A-152050=2]",
+        "source": "llm",
+        "latency_ms": 2250.0777040004323
+      }
+    },
+    {
+      "name": "ts-lonsas-frontlit",
+      "text": "q sean 18 las lonsas frontlit",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=18]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=18]",
+        "source": "llm",
+        "latency_ms": 3708.9988350007843
+      }
+    },
+    {
+      "name": "ts-sintras-plis",
+      "text": "las sintras q sean 12 plis",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "APPVEB-03-122244",
+          "APPVEB-05-122244",
+          "APPVEB-10-122244"
+        ],
+        "decision": "apply:Q-001[set_qty:APPVEB-03-122244=12]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "APPVEB-03-122244",
+          "APPVEB-05-122244",
+          "APPVEB-10-122244"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 2450.9799460001886
+      }
+    },
+    {
+      "name": "uq-un-par",
+      "text": "un par de rollos de laminado mate",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALAMMT-01-137050"
+        ],
+        "decision": "new[ALAMMT-01-137050=2]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALAMMT-01-137050"
+        ],
+        "decision": "new[ALAMMT-01-137050=2]",
+        "source": "llm",
+        "latency_ms": 2218.4926449999693
+      }
+    },
+    {
+      "name": "uq-media-docena",
+      "text": "cotizame media docena de tintas negras",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [
+          "ATEBKN-1L-001000"
+        ],
+        "decision": "new[ATEBKN-1L-001000=6]"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ATEBKN-1L-001000"
+        ],
+        "decision": "new[ATEBKN-1L-001000=6]",
+        "source": "llm",
+        "latency_ms": 1903.5716420003155
+      }
+    },
+    {
+      "name": "uq-docena",
+      "text": "necesito una docena de sintras de 3mm",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "APPVEB-03-122244"
+        ],
+        "decision": "new[APPVEB-03-122244=12]"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "APPVEB-03-122244"
+        ],
+        "decision": "new[APPVEB-03-122244=12]",
+        "source": "llm",
+        "latency_ms": 1914.0391229993838
+      }
+    },
+    {
+      "name": "uq-x2",
+      "text": "acrilico transparente 5mm x2",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ARACTR-05-122244"
+        ],
+        "decision": "new[ARACTR-05-122244=2]"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ARACTR-05-122244"
+        ],
+        "decision": "new[ARACTR-05-122244=2]",
+        "source": "llm",
+        "latency_ms": 2236.5537810001115
+      }
+    },
+    {
+      "name": "uq-2u",
+      "text": "agregame 2u de lona blackout 2.50",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALBKOC-013-250100"
+        ],
+        "decision": "apply:Q-001[add:ALBKOC-013-250100=2]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALBKOC-013-250100"
+        ],
+        "decision": "apply:Q-001[add:ALBKOC-013-250100=2]",
+        "source": "llm",
+        "latency_ms": 2196.7133409998496
+      }
+    },
+    {
+      "name": "uq-veinticinco",
+      "text": "cotizame veinticinco rollos de frontlit 1.60",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [
+          "ALFBTC-013-160100"
+        ],
+        "decision": "new[ALFBTC-013-160100=25]"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ALFBTC-013-160100"
+        ],
+        "decision": "new[ALFBTC-013-160100=25]",
+        "source": "llm",
+        "latency_ms": 1838.187220000691
+      }
+    },
+    {
+      "name": "uq-litros",
+      "text": "tinta cian 4 litros porfa",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ATECYN-1L-001000"
+        ],
+        "decision": "new[ATECYN-1L-001000=4]"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 4299.553386000298
+      }
+    },
+    {
+      "name": "uq-galones",
+      "text": "mandame 2 galones de tinta magenta",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ATEMGN-1L-001000"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 1540.6773149998116
+      }
+    },
+    {
+      "name": "mi-new-three",
+      "text": "cotizame 2 sintras 3mm, 1 acrilico negro y 4 tintas cyan",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [
+          "APPVEB-03-122244",
+          "ARACNG-03-122244",
+          "ATECYN-1L-001000"
+        ],
+        "decision": "new[APPVEB-03-122244=2,ARACNG-03-122244=1,ATECYN-1L-001000=4]"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "APPVEB-03-122244",
+          "ARACNG-03-122244",
+          "ATECYN-1L-001000"
+        ],
+        "decision": "new[APPVEB-03-122244=2,ARACNG-03-122244=1,ATECYN-1L-001000=4]",
+        "source": "llm",
+        "latency_ms": 3858.529723999709
+      }
+    },
+    {
+      "name": "mi-add-two-new",
+      "text": "agregale 2 laminados brillantes y 1 tinta amarilla",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALAMBR-01-137050",
+          "ATEYLN-1L-001000"
+        ],
+        "decision": "apply:Q-001[add:ALAMBR-01-137050=2,add:ATEYLN-1L-001000=1]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALAMBR-01-137050",
+          "ATEYLN-1L-001000"
+        ],
+        "decision": "apply:Q-001[add:ALAMBR-01-137050=2,add:ATEYLN-1L-001000=1]",
+        "source": "llm",
+        "latency_ms": 3191.362374000164
+      }
+    },
+    {
+      "name": "mi-add-existing",
+      "text": "sumale 5 frontlit y 2 mesh",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=25,set_qty:ALMCLC-0909-320100=7]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=25,set_qty:ALMCLC-0909-320100=7]",
+        "source": "llm",
+        "latency_ms": 4761.368735999895
+      }
+    },
+    {
+      "name": "mi-vinil-open",
+      "text": "necesito 3 rollos de lona 3.20x100 y 3 de vinil",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALBKOC-013-320100",
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-320100",
+          "AVBLBR-1A-106050",
+          "AVBLBR-1A-127050",
+          "AVBLBR-1A-137050",
+          "AVBLBR-1A-152050",
+          "AVBLMT-1A-106050",
+          "AVBLMT-1A-137050",
+          "AVBLMT-1A-152050",
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050",
+          "AVTRAN-1A-106050",
+          "AVTRAN-1A-137050",
+          "AVTRAN-1A-152050"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALFBTC-013-320100",
+          "AVBLBR-1A-106050",
+          "AVBLBR-1A-127050",
+          "AVBLBR-1A-137050",
+          "AVBLBR-1A-152050",
+          "AVBLMT-1A-106050",
+          "AVBLMT-1A-137050",
+          "AVBLMT-1A-152050",
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050",
+          "AVTRAN-1A-106050",
+          "AVTRAN-1A-137050",
+          "AVTRAN-1A-152050"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 5702.842770000643
+      }
+    },
+    {
+      "name": "mi-two-intents",
+      "text": "agrega 2 acrilicos blancos de 3mm y que las lonas frontlit sean 10",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100",
+          "ARACBL-03-122244"
+        ],
+        "decision": "apply:Q-001[add:ARACBL-03-122244=2,set_qty:ALFBTC-013-320100=10]"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 3837.5231259997236
+      }
+    },
+    {
+      "name": "mi-more-micro-plus-ink",
+      "text": "sumale 2 rollos mas de microperforado y agrega 3 tintas negras",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ATEBKN-1L-001000",
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050"
+        ],
+        "decision": "apply:Q-001[add:ATEBKN-1L-001000=3,set_qty:AVMICS-1A-137050=7]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ATEBKN-1L-001000",
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050"
+        ],
+        "decision": "apply:Q-001[add:ATEBKN-1L-001000=3,set_qty:AVMICS-1A-137050=7]",
+        "source": "llm",
+        "latency_ms": 3253.4487620005166
+      }
+    },
+    {
+      "name": "mi-bullet-list",
+      "text": "Cotización porfa:\n- 3 lonas frontlit 3.20x100\n- 2 mallas 3.20x100\n- 1 laminado mate",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [
+          "ALAMMT-01-137050",
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "new[ALAMMT-01-137050=1,ALFBTC-013-320100=3,ALMCLC-0909-320100=2]"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [
+          "ALAMMT-01-137050",
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "new[ALAMMT-01-137050=1,ALFBTC-013-320100=3,ALMCLC-0909-320100=2]",
+        "source": "llm",
+        "latency_ms": 4634.146570999292
+      }
+    },
+    {
+      "name": "co-eran-15",
+      "text": "perdon, eran 15 no 12",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "APPVEB-05-122244"
+        ],
+        "decision": "apply:Q-001[set_qty:APPVEB-05-122244=15]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "APPVEB-05-122244",
+          "ARACBL-03-122244"
+        ],
+        "decision": "apply:Q-001[set_qty:APPVEB-05-122244=15,set_qty:ARACBL-03-122244=2]",
+        "source": "llm",
+        "latency_ms": 3766.8701729999157
+      }
+    },
+    {
+      "name": "co-swap-colour",
+      "text": "me equivoque, era el blanco no el transparente 🙈",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ARACBL-03-122244",
+          "ARACTR-03-122244"
+        ],
+        "decision": "apply:Q-001[add:ARACBL-03-122244=4,remove:ARACTR-03-122244]"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 3980.075854000461
+      }
+    },
+    {
+      "name": "co-no-eran-3",
+      "text": "no eran 3 eran 5 los acrilicos negros",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ARACNG-03-122244"
+        ],
+        "decision": "apply:Q-001[set_qty:ARACNG-03-122244=5]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ARACNG-03-122244"
+        ],
+        "decision": "apply:Q-001[set_qty:ARACNG-03-122244=5]",
+        "source": "llm",
+        "latency_ms": 2036.80254199935
+      }
+    },
+    {
+      "name": "co-corrijo-blackout",
+      "text": "corrijo: son 8 rollos de blackout, no 6",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALBKOC-013-220100",
+          "ALBKOC-013-250100",
+          "ALBKOC-013-320050",
+          "ALBKOC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALBKOC-013-320100=8]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALBKOC-013-220100",
+          "ALBKOC-013-250100",
+          "ALBKOC-013-320050",
+          "ALBKOC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALBKOC-013-320100=8]",
+        "source": "llm",
+        "latency_ms": 2691.9957100008105
+      }
+    },
+    {
+      "name": "co-swap-width",
+      "text": "ay perdon el vinil mate era de 1.37 no de 1.52",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "AVBLMT-1A-137050",
+          "AVBLMT-1A-152050"
+        ],
+        "decision": "apply:Q-001[add:AVBLMT-1A-137050=3,remove:AVBLMT-1A-152050]"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 2529.9637620000794
+      }
+    },
+    {
+      "name": "co-which-four",
+      "text": "perdon eran 6 no 4",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 3075.874643000134
+      }
+    },
+    {
+      "name": "co-line-not-in-quote",
+      "text": "corrige las tintas a 10",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ATEBKN-1L-001000",
+          "ATECYN-1L-001000",
+          "ATEMGN-1L-001000",
+          "ATEYLN-1L-001000"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ATEBKN-1L-001000",
+          "ATECYN-1L-001000",
+          "ATEMGN-1L-001000",
+          "ATEYLN-1L-001000"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 2969.8048299997026
+      }
+    },
+    {
+      "name": "pr-quita-vinil",
+      "text": "quita el vinil porfa",
+      "expected": {
+        "intent": "remove_item",
+        "skus": [
+          "AVBLBR-1A-106050",
+          "AVBLBR-1A-127050",
+          "AVBLBR-1A-137050",
+          "AVBLBR-1A-152050",
+          "AVBLMT-1A-106050",
+          "AVBLMT-1A-137050",
+          "AVBLMT-1A-152050",
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050",
+          "AVTRAN-1A-106050",
+          "AVTRAN-1A-137050",
+          "AVTRAN-1A-152050"
+        ],
+        "decision": "apply:Q-001[remove:AVMICS-1A-137050]"
+      },
+      "got": {
+        "intent": "remove_item",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 1949.6126980002373
+      }
+    },
+    {
+      "name": "pr-ya-no-sintra",
+      "text": "ya no quiero el sintra",
+      "expected": {
+        "intent": "remove_item",
+        "skus": [
+          "APPVEB-03-122244",
+          "APPVEB-05-122244",
+          "APPVEB-10-122244"
+        ],
+        "decision": "apply:Q-001[remove:APPVEB-05-122244]"
+      },
+      "got": {
+        "intent": "remove_item",
+        "skus": [
+          "APPVEB-03-122244",
+          "APPVEB-05-122244",
+          "APPVEB-10-122244"
+        ],
+        "decision": "apply:Q-001[remove:APPVEB-05-122244]",
+        "source": "llm",
+        "latency_ms": 2378.3185739994224
+      }
+    },
+    {
+      "name": "pr-sacame-tintas",
+      "text": "sacame las tintas, ya tenemos",
+      "expected": {
+        "intent": "remove_item",
+        "skus": [
+          "ATEBKN-1L-001000",
+          "ATECYN-1L-001000",
+          "ATEMGN-1L-001000",
+          "ATEYLN-1L-001000"
+        ],
+        "decision": "apply:Q-001[remove:ATECYN-1L-001000,remove:ATEMGN-1L-001000]"
+      },
+      "got": {
+        "intent": "remove_item",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 639.3910309998319
+      }
+    },
+    {
+      "name": "pr-not-in-quote",
+      "text": "quita el acrilico de 5mm",
+      "expected": {
+        "intent": "remove_item",
+        "skus": [
+          "ARACBL-05-122244",
+          "ARACTR-05-122244"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 2062.08235899976
+      }
+    },
+    {
+      "name": "pr-quitale-2",
+      "text": "quitale 2 a las frontlit",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=18]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=18]",
+        "source": "llm",
+        "latency_ms": 3085.2825729998585
+      }
+    },
+    {
+      "name": "pr-which-vinil",
+      "text": "quita el vinil",
+      "expected": {
+        "intent": "remove_item",
+        "skus": [
+          "AVBLBR-1A-106050",
+          "AVBLBR-1A-127050",
+          "AVBLBR-1A-137050",
+          "AVBLBR-1A-152050",
+          "AVBLMT-1A-106050",
+          "AVBLMT-1A-137050",
+          "AVBLMT-1A-152050",
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050",
+          "AVTRAN-1A-106050",
+          "AVTRAN-1A-137050",
+          "AVTRAN-1A-152050"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "remove_item",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 747.3558100000446
+      }
+    },
+    {
+      "name": "oc-lona-5x100",
+      "text": "cotizame 3 rollos de lona 5x100",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 1807.491857000059
+      }
+    },
+    {
+      "name": "oc-acrilico-rojo",
+      "text": "necesito 2 acrilicos rojos de 3mm",
+      "expected": {
+        "intent": "add_items",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 1677.4736790002862
+      }
+    },
+    {
+      "name": "oc-sintra-20mm",
+      "text": "cotizame 10 sintras de 20mm",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 1696.0934109993104
+      }
+    },
+    {
+      "name": "oc-tela-canvas",
+      "text": "tienen tela canvas? necesito 5 rollos",
+      "expected": {
+        "intent": "add_items",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 1033.0427359995156
+      }
+    },
+    {
+      "name": "oc-papel-foto",
+      "text": "cotizame 100 hojas de papel fotografico",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 285.780309999609
+      }
+    },
+    {
+      "name": "oc-acrilico-transp-2mm",
+      "text": "agregale 2 acrilicos transparentes de 2mm",
+      "expected": {
+        "intent": "add_items",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 2081.581916999312
+      }
+    },
+    {
+      "name": "oc-blackout-160",
+      "text": "necesito 4 rollos de lona blackout 1.60",
+      "expected": {
+        "intent": "add_items",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 1788.1847600001493
+      }
+    },
+    {
+      "name": "oc-tinta-blanca",
+      "text": "cotizame 2 tintas blancas",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 1757.4507150002319
+      }
+    },
+    {
+      "name": "oc-mixed",
+      "text": "agrega 2 sintras de 5mm y 1 acrilico rojo",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "APPVEB-05-122244"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "APPVEB-05-122244"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 2404.9638370006505
+      }
+    },
+    {
+      "name": "oc-question-noop",
+      "text": "tienen lona de 5 metros de ancho?",
+      "expected": {
+        "intent": "query",
+        "skus": [],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "query",
+        "skus": [],
+        "decision": "noop",
+        "source": "llm",
+        "latency_ms": 733.850751999853
+      }
+    },
+    {
+      "name": "oc-question-link",
+      "text": "y acrilico dorado manejan? para ver si lo sumo a la Q-001",
+      "expected": {
+        "intent": "query",
+        "skus": [],
+        "decision": "apply:Q-001[]"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 1924.3252569995093
+      }
+    },
+    {
+      "name": "oc-remove-unknown",
+      "text": "quita el acrilico rojo",
+      "expected": {
+        "intent": "remove_item",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "remove_item",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 1215.0046279994058
+      }
+    },
+    {
+      "name": "oc-ojillos",
+      "text": "agregale 500 ojillos para las lonas",
+      "expected": {
+        "intent": "add_items",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 1044.5262700004605
+      }
+    },
+    {
+      "name": "oc-mesh-160",
+      "text": "cotizame 2 mallas de 1.60",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "create_quote",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 4536.943003000488
+      }
+    },
+    {
+      "name": "oc-laminado-152",
+      "text": "necesito 3 rollos de laminado mate 1.52",
+      "expected": {
+        "intent": "add_items",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 5680.02747599985
+      }
+    },
+    {
+      "name": "oc-vinil-mate-127",
+      "text": "agregale 1 rollo de vinil mate 1.27",
+      "expected": {
+        "intent": "add_items",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "AVBLMT-1A-106050",
+          "AVBLMT-1A-137050",
+          "AVBLMT-1A-152050"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 2202.840619000199
+      }
+    },
+    {
+      "name": "qn-hola",
+      "text": "hola buenas tardes 👋",
+      "expected": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop",
+        "source": "llm",
+        "latency_ms": 955.3709159999926
+      }
+    },
+    {
+      "name": "qn-precio",
+      "text": "cuanto sale el rollo de lona frontlit 3.20?",
+      "expected": {
+        "intent": "query",
+        "skus": [
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "query",
+        "skus": [],
+        "decision": "noop",
+        "source": "llm",
+        "latency_ms": 469.45663099995727
+      }
+    },
+    {
+      "name": "qn-stock",
+      "text": "tienen stock de sintra 10mm? 🙏",
+      "expected": {
+        "intent": "query",
+        "skus": [
+          "APPVEB-10-122244"
+        ],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "query",
+        "skus": [],
+        "decision": "noop",
+        "source": "llm",
+        "latency_ms": 616.1367949998748
+      }
+    },
+    {
+      "name": "qn-entrega",
+      "text": "para cuando estaria la entrega?",
+      "expected": {
+        "intent": "query",
+        "skus": [],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "query",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 983.878714999264
+      }
+    },
+    {
+      "name": "qn-total-q001",
+      "text": "me pasas el total de la Q-001 xfa",
+      "expected": {
+        "intent": "query",
+        "skus": [],
+        "decision": "apply:Q-001[]"
+      },
+      "got": {
+        "intent": "query",
+        "skus": [],
+        "decision": "apply:Q-001[]",
+        "source": "llm",
+        "latency_ms": 703.016800000114
+      }
+    },
+    {
+      "name": "qn-factura",
+      "text": "me pueden facturar? necesito factura con mis datos fiscales",
+      "expected": {
+        "intent": "query",
+        "skus": [],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 282.38553699975455
+      }
+    },
+    {
+      "name": "qn-gracias-jefe",
+      "text": "ok gracias, lo reviso con mi jefe y te aviso 👍",
+      "expected": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop",
+        "source": "llm",
+        "latency_ms": 283.7188719995538
+      }
+    },
+    {
+      "name": "qn-price-en-vez-de",
+      "text": "cuanto me sale si llevo 10 lonas frontlit en vez de 20?",
+      "expected": {
+        "intent": "query",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[]"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 3258.2326660003673
+      }
+    },
+    {
+      "name": "rf-vez-pasada",
+      "text": "lo mismo que la vez pasada porfa",
+      "expected": {
+        "intent": "create_quote",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 775.2727429997321
+      }
+    },
+    {
+      "name": "rf-la-de-ayer",
+      "text": "la de ayer cambiala a 10 rollos",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 2059.792774000016
+      }
+    },
+    {
+      "name": "rf-q003-missing",
+      "text": "en la Q-003 ponme 5 laminados mate",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALAMMT-01-137050"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALAMMT-01-137050"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 1945.784212000035
+      }
+    },
+    {
+      "name": "rf-lo-de-alice",
+      "text": "lo que pidió Alice pero que sean 6",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 1514.2192829998748
+      }
+    },
+    {
+      "name": "rf-history-esas",
+      "text": "si, ponle 2 mas de esas",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ATECYN-1L-001000"
+        ],
+        "decision": "apply:Q-001[set_qty:ATECYN-1L-001000=12]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ATECYN-1L-001000"
+        ],
+        "decision": "apply:Q-001[set_qty:ATECYN-1L-001000=12]",
+        "source": "llm",
+        "latency_ms": 2097.2207679997155
+      }
+    },
+    {
+      "name": "rf-history-answer",
+      "text": "5",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "apply:Q-001[add:ALMCLC-0909-320100=5]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 1711.358773000029
+      }
+    },
+    {
+      "name": "mq-prev-qty",
+      "text": "las frontlit que sean 30, no 20",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=30]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=30]",
+        "source": "llm",
+        "latency_ms": 2210.818300999563
+      }
+    },
+    {
+      "name": "mq-tie",
+      "text": "que sean 30 las frontlit",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 3015.848220999942
+      }
+    },
+    {
+      "name": "mq-explicit-add",
+      "text": "en la Q-002 agregale 1 tinta negra",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ATEBKN-1L-001000"
+        ],
+        "decision": "apply:Q-002[add:ATEBKN-1L-001000=1]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ATEBKN-1L-001000"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 2094.656739999664
+      }
+    },
+    {
+      "name": "mq-three-tintas",
+      "text": "las tintas que sean 6",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ATEBKN-1L-001000",
+          "ATECYN-1L-001000",
+          "ATEMGN-1L-001000",
+          "ATEYLN-1L-001000"
+        ],
+        "decision": "apply:Q-003[set_qty:ATEMGN-1L-001000=6]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ATEBKN-1L-001000",
+          "ATECYN-1L-001000",
+          "ATEMGN-1L-001000",
+          "ATEYLN-1L-001000"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 2410.1835069996014
+      }
+    },
+    {
+      "name": "mq-cross-conv-query",
+      "text": "hola, soy Lucia de diseño, me pasas que lleva la cotizacion del sintra?",
+      "expected": {
+        "intent": "query",
+        "skus": [
+          "APPVEB-03-122244",
+          "APPVEB-05-122244",
+          "APPVEB-10-122244"
+        ],
+        "decision": "apply:Q-002[]"
+      },
+      "got": {
+        "intent": "query",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 357.96496999955707
+      }
+    },
+    {
+      "name": "mq-add-by-content",
+      "text": "sumale 2 sintras de 5mm",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "APPVEB-05-122244"
+        ],
+        "decision": "apply:Q-002[set_qty:APPVEB-05-122244=12]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "APPVEB-05-122244"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 1523.0289129995072
+      }
+    },
+    {
+      "name": "mq-remove-both-have",
+      "text": "quita el microperforado",
+      "expected": {
+        "intent": "remove_item",
+        "skus": [
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "remove_item",
+        "skus": [
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050"
+        ],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 2191.2894280003457
+      }
+    },
+    {
+      "name": "vn-new-order",
+      "text": "hola que tal buenas tardes mira te comento que necesitamos para el evento del sabado unas 15 lonas frontlit de 3.20 por 100 y tambien unos 4 rollos de vinil microperforado de 1.37 eh y nada mas eso seria todo muchas gracias",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALFBTC-013-320100",
+          "AVMICS-1A-137050"
+        ],
+        "decision": "new[ALFBTC-013-320100=15,AVMICS-1A-137050=4]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALFBTC-013-320100",
+          "AVMICS-1A-137050"
+        ],
+        "decision": "new[ALFBTC-013-320100=15,AVMICS-1A-137050=4]",
+        "source": "llm",
+        "latency_ms": 3846.2975790007476
+      }
+    },
+    {
+      "name": "vn-update",
+      "text": "oye si mira lo de las lonas que te habia dicho veinte mejor dejalo en quince porque el cliente recorto el presupuesto y lo demas dejalo igual porfa",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALBKOC-013-220100",
+          "ALBKOC-013-250100",
+          "ALBKOC-013-320050",
+          "ALBKOC-013-320100",
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALBKOC-013-220100",
+          "ALBKOC-013-250100",
+          "ALBKOC-013-320050",
+          "ALBKOC-013-320100",
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100",
+          "ALMCLC-0909-250100",
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]",
+        "source": "llm",
+        "latency_ms": 5033.176622999235
+      }
+    },
+    {
+      "name": "vn-question",
+      "text": "eh hola si te queria preguntar si ustedes hacen envios a monterrey o hay que pasar a recoger porque la otra vez tardaron bastante y el cliente se enojo un poco",
+      "expected": {
+        "intent": "query",
+        "skus": [],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "query",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 786.3836189999347
+      }
+    },
+    {
+      "name": "vn-cancel",
+      "text": "mira al final el cliente se echo para atras asi que cancela todo lo que teniamos cotizado perdon por las molestias eh",
+      "expected": {
+        "intent": "cancel",
+        "skus": [],
+        "decision": "apply:Q-001[cancel]"
+      },
+      "got": {
+        "intent": "cancel",
+        "skus": [],
+        "decision": "apply:Q-001[cancel]",
+        "source": "llm",
+        "latency_ms": 585.8940589996564
+      }
+    },
+    {
+      "name": "vn-mixed-unknown",
+      "text": "buenas mira necesito cotizar 10 sintras de 5 milimetros y tambien si tienen lona de 5 metros de ancho cotizame 2 rollos que es para un espectacular",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "APPVEB-05-122244"
+        ],
+        "decision": "review"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 7636.164716000167
+      }
+    },
+    {
+      "name": "vn-add",
+      "text": "ah y otra cosa que se me olvido agregale tambien dos tintas amarillas y dos negras para completar el juego porfa",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ATEBKN-1L-001000",
+          "ATEYLN-1L-001000"
+        ],
+        "decision": "apply:Q-001[add:ATEBKN-1L-001000=2,add:ATEYLN-1L-001000=2]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ATEBKN-1L-001000",
+          "ATEYLN-1L-001000"
+        ],
+        "decision": "apply:Q-001[add:ATEBKN-1L-001000=2,add:ATEYLN-1L-001000=2]",
+        "source": "llm",
+        "latency_ms": 2896.8554699995366
+      }
+    },
+    {
+      "name": "ro-confirm",
+      "text": "Listo Mario, te dejo la Q-001 con 15 lonas frontlit 👍",
+      "expected": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop",
+        "source": "skipped",
+        "latency_ms": 0.0
+      }
+    },
+    {
+      "name": "ro-cancel",
+      "text": "Te confirmo que cancelamos la cotizacion Q-001",
+      "expected": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop",
+        "source": "skipped",
+        "latency_ms": 0.0
+      }
+    },
+    {
+      "name": "ro-offer",
+      "text": "Hola! te cotizo tambien 10 rollos de mesh 2.50x100?",
+      "expected": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop",
+        "source": "skipped",
+        "latency_ms": 0.0
+      }
+    },
+    {
+      "name": "ro-added",
+      "text": "Agregué 2 tintas negras a tu pedido, cualquier cosa me avisas",
+      "expected": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop",
+        "source": "skipped",
+        "latency_ms": 0.0
+      }
+    },
+    {
+      "name": "ro-wrong-chat",
+      "text": "perdon, ignora eso, me equivoque de chat 😅",
+      "expected": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop",
+        "source": "skipped",
+        "latency_ms": 0.0
+      }
+    },
+    {
+      "name": "ca-todo-one",
+      "text": "cancela todo porfa",
+      "expected": {
+        "intent": "cancel",
+        "skus": [],
+        "decision": "apply:Q-001[cancel]"
+      },
+      "got": {
+        "intent": "cancel",
+        "skus": [],
+        "decision": "apply:Q-001[cancel]",
+        "source": "llm",
+        "latency_ms": 1016.8121659999088
+      }
+    },
+    {
+      "name": "ca-todo-two",
+      "text": "cancela todo",
+      "expected": {
+        "intent": "cancel",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "cancel",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 286.63263599992206
+      }
+    },
+    {
+      "name": "ca-by-content",
+      "text": "cancela la cotizacion de las tintas",
+      "expected": {
+        "intent": "cancel",
+        "skus": [
+          "ATEBKN-1L-001000",
+          "ATECYN-1L-001000",
+          "ATEMGN-1L-001000",
+          "ATEYLN-1L-001000"
+        ],
+        "decision": "apply:Q-002[cancel]"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 733.5696369991638
+      }
+    },
+    {
+      "name": "ca-partial",
+      "text": "cancela el microperforado nomas, lo demas sigue",
+      "expected": {
+        "intent": "remove_item",
+        "skus": [
+          "AVMICS-1A-137050",
+          "AVMICS-1A-152050"
+        ],
+        "decision": "apply:Q-001[remove:AVMICS-1A-137050]"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 693.0701929995848
+      }
+    },
+    {
+      "name": "ca-negated",
+      "text": "no no, no cancelen nada, seguimos con la cotizacion",
+      "expected": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop"
+      },
+      "got": {
+        "intent": "none",
+        "skus": [],
+        "decision": "noop",
+        "source": "llm",
+        "latency_ms": 1017.6513980004529
+      }
+    },
+    {
+      "name": "ca-unknown-quote",
+      "text": "cancela la Q-007",
+      "expected": {
+        "intent": "cancel",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": "cancel",
+        "skus": [],
+        "decision": "review",
+        "source": "llm",
+        "latency_ms": 695.065247000457
+      }
+    },
+    {
+      "name": "ca-unknown-product",
+      "text": "cancela lo del papel fotografico",
+      "expected": {
+        "intent": "cancel",
+        "skus": [],
+        "decision": "review"
+      },
+      "got": {
+        "intent": null,
+        "skus": [],
+        "decision": "review",
+        "source": null,
+        "latency_ms": 284.70455699971353
+      }
+    },
+    {
+      "name": "uq-quitale-dos",
+      "text": "quitale dos a las frontlit",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=18]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=18]",
+        "source": "llm",
+        "latency_ms": 3178.446378999979
+      }
+    },
+    {
+      "name": "co-5-menos",
+      "text": "5 lonas frontlit menos",
+      "expected": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]"
+      },
+      "got": {
+        "intent": "update_qty",
+        "skus": [
+          "ALFBTC-013-160100",
+          "ALFBTC-013-220100",
+          "ALFBTC-013-250050",
+          "ALFBTC-013-250100",
+          "ALFBTC-013-320050",
+          "ALFBTC-013-320100"
+        ],
+        "decision": "apply:Q-001[set_qty:ALFBTC-013-320100=15]",
+        "source": "llm",
+        "latency_ms": 2916.6140130000713
+      }
+    },
+    {
+      "name": "uq-te-encargo",
+      "text": "te encargo 10 rollos de mesh 3.20x100",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "new[ALMCLC-0909-320100=10]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALMCLC-0909-320100"
+        ],
+        "decision": "new[ALMCLC-0909-320100=10]",
+        "source": "llm",
+        "latency_ms": 1739.6923959995547
+      }
+    },
+    {
+      "name": "uq-mandenme",
+      "text": "mandenme 10 lonas frontlit 3.20x100",
+      "expected": {
+        "intent": "add_items",
+        "skus": [
+          "ALFBTC-013-320100"
+        ],
+        "decision": "new[ALFBTC-013-320100=10]"
+      },
+      "got": {
+        "intent": "add_items",
+        "skus": [
+          "ALFBTC-013-320100"
+        ],
+        "decision": "new[ALFBTC-013-320100=10]",
+        "source": "llm",
+        "latency_ms": 1689.9801079998724
+      }
+    }
+  ]
+}

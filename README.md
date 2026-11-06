@@ -177,7 +177,7 @@ It is a deterministic net biased to review and cannot cover all of Spanish: an u
 
 **Scaling to 1,000 conversations/day.** That is under one conversation per minute; even at ~5 customer messages each it is ~10 messages/min during business hours. What breaks, in order:
 
-1. **LLM throughput, not the database.** On the 2-core CPU VM a warm fallback interpretation takes ~27 s (minutes when the model is cold) and a Phase 1 extraction ~80 s, one at a time. Everything the rules miss queues behind that. First fix: a GPU (`just up-gpu`), then parallel slots in the runner, then vLLM. Webhook timeouts are already a non-issue: the API answers 202 and the inbox absorbs bursts and WhatsApp retries.
+1. **LLM throughput, not the database.** On the 2-core CPU VM a warm fallback interpretation takes ~27 s (minutes when the model is cold) and a Phase 1 extraction ~80 s, one at a time. Everything the rules miss queues behind that. First fix: a GPU (`just up-gpu`) — measured on an RTX 4050 laptop it brings the cascade to p50 0.3 s / p95 4 s and Phase 1 to ~6.6 s (§8) — then parallel slots in the runner, then vLLM. Webhook timeouts are already a non-issue: the API answers 202 and the inbox absorbs bursts and WhatsApp retries.
 2. **Locks held across the model call**, once there are several workers: each in-flight LLM call pins a connection. Fix: two-phase processing (interpret outside the transaction, route + apply inside with the version check that review resolution already uses).
 3. **Catalog size.** Already visible at 39 SKUs (54–205 s per call with the full table in the prompt); the family pre-filter fixed that for now. At 5,000 SKUs the next step is retrieval (FTS / pgvector) to build a top-k enum per message.
 4. **Humans.** Review throughput becomes the real limit before Postgres does.
@@ -192,42 +192,51 @@ It is a deterministic net biased to review and cannot cover all of Spanish: an u
 
 **127 golden cases** (`evals/golden.jsonl`): the 23 round-1 cases (challenge events, paraphrases, typos, numbers in words, traps, explicit quote ids) plus 104 round-2 cases in 13 categories (new catalog SKUs, typos/slang, units and quantity words, multi-item, corrections, partial removals, out-of-catalog, questions/chatter, references, several open quotes, voice-note transcripts, rep messages, cancels). Each case runs extraction + routing against fixed open quotes (and optional chat history); "routing" requires the right target **and** the right ops. "Wrong mutation" = an apply/new-quote whose ops differ from the expected ones; "safe miss" = review where an action or a no-op was expected. Six round-1 cases now expect `review` because the 39-SKU catalog made them genuinely ambiguous (justified case by case in `evals/FAILURES.md`); expected decisions were never edited to match outputs.
 
-Final runs, 2-core ARM64 CPU VM, no GPU, Qwen3-4B-Instruct-2507 Q4_K_M. `rules` covers all 127 cases; the `cascade`/`llm` full runs predate the last 4 cases (relative changes and order verbs), which were run with `--only` (results in `evals/FAILURES.md`), so those two rows are over the first 123:
+**Headline: laptop GPU (NVIDIA RTX 4050 Laptop, 6 GB), all 127 cases, final code.** Qwen3-4B-Instruct-2507 Q4_K_M via Docker Model Runner (CUDA), context 8192:
 
 | Mode | intent acc | SKU-set acc | routing exact | solved by rules | p50 | p95 | review rate | wrong mutations (harness) | of which change state | safe misses | run time |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `cascade` (rules → LLM) | 72% | 85% | **86%** | 41% | 7.3 s | 152.8 s | 46% | 1 | **0** | 16 | ~1 h 15 min |
-| `llm` only (ablation) | 76% | 80% | 80% | 0% | 40.2 s | 157.8 s | 48% | 2 | **1** | 21 | ~2 h 05 min |
-| `rules` only | 37% | 63% | 61% | 42% | 0.1 ms | 0.3 ms | 70% | 0 | 0 | 49 | < 1 min |
+| `cascade` (rules → LLM) | 72% | 86% | **87%** | 42% | **0.3 s** | **4.0 s** | 44% | 1 | **0** | 16 | ~3 min |
+| `llm` only (ablation) | 77% | 80% | 83% | 0% | 2.0 s | 5.0 s | 46% | 2 | **1** | 20 | ~5 min |
+| `rules` only | 37% | 63% | 61% | 42% | <0.1 ms | 0.2 ms | 70% | 0 | 0 | 49 | < 1 min |
 
-Per category — routing exact / wrong mutations (harness) / safe misses:
+Per category on the GPU — routing exact / wrong mutations (harness) / safe misses:
 
 | category | n | `cascade` | `llm` | `rules` |
 |---|---|---|---|---|
 | legacy (round 1) | 23 | 100% / 0 / 0 | 96% / 0 / 1 | 74% / 0 / 6 |
-| catalog_new | 9 | 100% / 0 / 0 | 78% / 1 / 1 | 100% / 0 / 0 |
+| catalog_new | 9 | 100% / 0 / 0 | 89% / 1 / 0 | 100% / 0 / 0 |
 | typos_slang | 8 | 100% / 0 / 0 | 88% / 0 / 1 | 75% / 0 / 2 |
-| units_quantities | 8 (rules 11) | 88% / 0 / 1 | 88% / 0 / 1 | 27% / 0 / 8 |
+| units_quantities | 11 | 91% / 0 / 1 | 91% / 0 / 1 | 27% / 0 / 8 |
 | multi_item | 7 | 86% / 0 / 1 | 86% / 0 / 1 | 71% / 0 / 2 |
-| corrections | 7 (rules 8) | 57% / 1 / 2 | 57% / 1 / 2 | 25% / 0 / 6 |
+| corrections | 8 | 62% / 1 / 2 | 62% / 1 / 2 | 25% / 0 / 6 |
 | partial_remove | 6 | 67% / 0 / 2 | 67% / 0 / 2 | 33% / 0 / 4 |
 | out_of_catalog | 16 | 94% / 0 / 1 | 94% / 0 / 1 | 88% / 0 / 2 |
 | questions_noop | 8 | 62% / 0 / 3 | 62% / 0 / 3 | 12% / 0 / 7 |
-| references | 6 | 83% / 0 / 1 | 67% / 0 / 1 | 67% / 0 / 2 |
+| references | 6 | 83% / 0 / 1 | 83% / 0 / 1 | 67% / 0 / 2 |
 | multi_quote | 7 | 71% / 0 / 2 | 43% / 0 / 4 | 71% / 0 / 2 |
 | voice_note | 6 | 83% / 0 / 1 | 83% / 0 / 1 | 17% / 0 / 5 |
 | rep_outbound | 5 | 100% / 0 / 0 | 100% / 0 / 0 | 100% / 0 / 0 |
 | cancel | 7 | 71% / 0 / 2 | 71% / 0 / 2 | 57% / 0 / 3 |
 
+Same evals on the 2-core ARM64 CPU VM (no GPU). The `cascade`/`llm` full runs there predate the last 4 cases (run with `--only`, see `evals/FAILURES.md`), so those rows are over 123:
+
+| Mode (CPU) | routing exact | wrong mutations (harness) / changing state | safe misses | p50 | p95 | run time |
+|---|---|---|---|---|---|---|
+| `cascade` | 86% | 1 / **0** | 16 | 7.3 s | 152.8 s | ~1 h 15 min |
+| `llm` only | 80% | 2 / **1** | 21 | 40.2 s | 157.8 s | ~2 h 05 min |
+| `rules` only | 61% | 0 / 0 | 49 | 0.1 ms | 0.3 ms | < 1 min |
+
 Reading:
 
-* **The cascade is the production mode and the best one**: 86% exact routing, and its only "wrong mutation" changes nothing (see §9). It skips the model for 41% of messages. 0 out-of-catalog products mapped to a SKU, 0 silent misses.
+* **The cascade is the production mode and the best one**: 87% exact routing, and its only "wrong mutation" changes nothing (see §9). It skips the model for 42% of messages. 0 out-of-catalog products mapped to a SKU, 0 silent misses.
 * **Rules alone never mutated wrongly** (0 in 127) but give up on 70% of messages: they are a cheap, safe first stage, not a product.
-* **The LLM alone is worse and slower** than the cascade, and it is the only mode with a state-changing wrong mutation and a silent miss. The rules catch exactly the cases where the small model narrows or drops things.
-* **Latency is CPU-bound.** p50 7.3 s for the cascade is the mix of 0 ms rules hits and ~20–60 s LLM calls; p95 ~150 s is long messages with history on a 2-core CPU (the first call after a model load was ~275 s). A GPU is the first fix (§7). Round 1 measured p95 ~24–27 s with a 4-SKU prompt; the family pre-filter is what keeps the 39-SKU prompt usable at all (54–205 s per call without it).
+* **The LLM alone is worse and slower** than the cascade, and it is the only mode with a state-changing wrong mutation. The rules catch exactly the cases where the small model narrows or drops things.
+* **GPU vs CPU: same accuracy, ~25–40× lower latency.** Same model and code, so routing is identical within one case (87% vs 86%); cascade p50/p95 drop from 7.3 s / 153 s to 0.3 s / 4.0 s, and a Phase 1 extraction from ~80–130 s to ~6.6 s. On a laptop GPU the pipeline is real-time.
+* **What the 16 cascade safe misses are** (all go to a human, none change state): questions the broad Guard sends to review instead of a query/no-op (5), single-line removals caught by the relative-change safety rule (3), "N litros" of a 1 L SKU treated as an unsupported unit (1), swaps and two intents in one message the contract can't express (3), picking a quote by content among several open ones (3), an answer that depends on chat history (1).
 * Round-1 numbers (23 cases, 4 SKUs: cascade 96%, llm 91%, rules 48% routing) are not comparable: different catalog, six re-ruled cases, and 100 harder cases.
 
-Full per-case output: `evals/results-<mode>-koeti-lab.{md,json}`. GPU numbers are still to be measured (`just up-gpu` + `just eval`).
+Full per-case output: `evals/results-<mode>-bazzite-rtx4050.{md,json}` (GPU) and `evals/results-<mode>-koeti-lab.{md,json}` (CPU).
 
 ## 9. Known failures
 
