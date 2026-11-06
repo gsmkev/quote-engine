@@ -5,6 +5,7 @@ from pathlib import Path
 import structlog
 from pydantic import BaseModel, ValidationError
 
+from quote_engine.adapters.extractors.guards import Guard
 from quote_engine.application.ports import ConversationCtx, MessageCtx
 from quote_engine.domain.catalog import Catalog
 from quote_engine.domain.interpretation import (
@@ -22,6 +23,7 @@ class ReplayExtractor:
     def __init__(self, dir: Path, catalog: Catalog) -> None:
         self.dir = dir
         self._interp, self._extraction = make_llm_models(catalog)
+        self._guard = Guard(catalog)
 
     @staticmethod
     def message_key(text: str) -> str:
@@ -59,7 +61,8 @@ class ReplayExtractor:
 
     async def interpret(self, ctx: MessageCtx) -> MessageInterpretation | None:
         data = self._load(self.message_key(ctx.text))
-        return self._validate(self._interp, data and {**data, "source": "replay"})
+        result = self._validate(self._interp, data and {**data, "source": "replay"})
+        return self._guard(ctx.text, result)
 
     async def extract_conversation(self, ctx: ConversationCtx) -> ConversationExtraction | None:
         return self._validate(self._extraction, self._load(self.conversation_key(ctx.messages)))

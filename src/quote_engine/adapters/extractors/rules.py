@@ -1,9 +1,10 @@
 import math
 import re
-import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
+from quote_engine.adapters.extractors.guards import Guard
+from quote_engine.adapters.extractors.text import norm
 from quote_engine.application.ports import ConversationCtx, MessageCtx
 from quote_engine.domain.catalog import Catalog
 from quote_engine.domain.interpretation import (
@@ -87,13 +88,6 @@ _CANCEL_FILLER = frozenset(
 )
 
 
-def norm(text: str) -> str:
-    text = unicodedata.normalize("NFKD", text.lower())
-    text = "".join(c for c in text if not unicodedata.combining(c))
-    text = re.sub(r"(?<=\d),(?=\d)", ".", text)
-    return re.sub(r"\s+", " ", text).strip()
-
-
 def _blank(text: str, spans: list[tuple[int, int]]) -> str:
     for s, e in spans:
         text = text[:s] + " " * (e - s) + text[e:]
@@ -170,6 +164,7 @@ class RuleExtractor:
 
     def __init__(self, catalog: Catalog) -> None:
         self._catalog = catalog
+        self._guard = Guard(catalog)
         table: dict[str, list[str]] = {}
         for item in catalog.items.values():
             for alias in item.aliases:
@@ -185,7 +180,7 @@ class RuleExtractor:
             return None
         if result is not None:
             validate_skus(result, self._catalog)
-        return result
+        return self._guard(ctx.text, result)
 
     async def extract_conversation(self, ctx: ConversationCtx) -> ConversationExtraction | None:
         return None

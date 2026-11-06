@@ -6,6 +6,7 @@ import structlog
 from openai import AsyncOpenAI
 from pydantic import BaseModel, create_model
 
+from quote_engine.adapters.extractors.guards import Guard
 from quote_engine.application.ports import ConversationCtx, MessageCtx
 from quote_engine.config import Settings
 from quote_engine.domain.catalog import Catalog
@@ -96,6 +97,7 @@ class LLMExtractor:
             mode=instructor.Mode.JSON_SCHEMA,
         )
         self._catalog = catalog
+        self._guard = Guard(catalog)
         self._views: dict[tuple[str, ...], _View] = {}
 
     def _view(self, texts: list[str]) -> "_View":
@@ -152,7 +154,7 @@ class LLMExtractor:
         result = await self._call(view.interp, view.msg_system, user, "interpret")
         if result is None:
             return None
-        return result.model_copy(update={"source": "llm"})
+        return self._guard(ctx.text, result.model_copy(update={"source": "llm"}))
 
     async def extract_conversation(self, ctx: ConversationCtx) -> ConversationExtraction | None:
         view = self._view([t for _, t in ctx.messages])
