@@ -58,10 +58,10 @@ _SETS = re.compile(r"\bsean\b|\bcambia\w*|\ben vez de\b|\bdeja\w* en\b")
 # Relative changes: "quitale 2", "2 menos" / "ponle 2 mas". The number is read here, never
 # trusted from the extractor's qty.
 _COUNT_UNIT = r"(?:rollos? |piezas? |unidades? |planchas? )?"
-_LESS = re.compile(
-    rf"\b(?:quita|resta|baja|descuenta|reduce)(?:le|les)? (\d+)\b|\b(\d+) {_COUNT_UNIT}menos\b"
-)
+_LESS = re.compile(rf"\b(?:quit|rest|baj|descuent|reduc)\w* (\d+)\b|\b(\d+) {_COUNT_UNIT}menos\b")
 _MORE = re.compile(rf"\b(\d+) {_COUNT_UNIT}mas\b")
+_NEGATOR = re.compile(r"\b(?:no|ni|sin)\b")
+_TAKE_AWAY = re.compile(r"\b(?:quit|sac|rest)\w*")
 # Order verbs (typos included): with a quantity and no question, a "nothing to do" reading is
 # a silent miss.
 _ORDER = re.compile(
@@ -125,18 +125,28 @@ class Guard:
 
     @staticmethod
     def _relative(t: str, interp: MessageInterpretation) -> MessageInterpretation | None:
+        """Relative changes only move one existing line; anything less clear goes to review."""
         less, more = _LESS.search(t), _MORE.search(t)
-        if less is None and (more is None or interp.intent is Intent.ADD_ITEMS):
+        if less is None and more is None:
+            return interp
+        rel = less or more
+        assert rel is not None
+        if _NEGATOR.search(t, 0, rel.start()) or (less and more):
+            return None  # "ya no quiero 2 mas", "no le quites 2": not ours to guess
+        if more is not None and interp.intent is Intent.ADD_ITEMS and not _TAKE_AWAY.search(t):
             return interp  # an add already means "on top of what is there"
         if len(interp.items) != 1 or not interp.items[0].in_catalog:
             return None  # which line moves by how much is not ours to guess
         if less is not None:
-            n = int(less.group(1) or less.group(2))
-            change = {"qty": None, "previous_qty": None, "qty_delta": -n}
-            intent = Intent.UPDATE_QTY
+            if interp.intent is Intent.CREATE_QUOTE:
+                return None
+            delta = -int(less.group(1) or less.group(2))
         else:
             assert more is not None
-            change = {"qty": int(more.group(1)), "previous_qty": None}
-            intent = Intent.ADD_ITEMS
+            if interp.intent is not Intent.UPDATE_QTY or _TAKE_AWAY.search(t):
+                return None  # remove/cancel/create with "N mas" contradicts itself
+            delta = int(more.group(1))
+        # as a delta on UPDATE_QTY the router only touches a unique existing line, never adds one
+        change = {"qty": None, "previous_qty": None, "qty_delta": delta}
         item = interp.items[0].model_copy(update=change)
-        return interp.model_copy(update={"intent": intent, "items": [item]})
+        return interp.model_copy(update={"intent": Intent.UPDATE_QTY, "items": [item]})

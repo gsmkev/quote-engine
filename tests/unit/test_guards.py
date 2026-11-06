@@ -177,14 +177,37 @@ def test_decrease_becomes_relative_update(intent):
     assert it.sku_candidates == FRONTLITS
 
 
-@pytest.mark.parametrize("intent", [Intent.UPDATE_QTY, Intent.CREATE_QUOTE])
-def test_increase_becomes_add(intent):
-    # "ponle 2 mas de esas": +2 on the existing line, never set it to 2
-    got = guard("si, ponle 2 mas de esas", interp(intent, item([CYAN], 2, 10, mention="esas")))
+def test_increase_on_update_becomes_relative_update():
+    # "ponle 2 mas de esas": +2 on the existing line, never set it to 2, never a new line
+    i = interp(Intent.UPDATE_QTY, item([CYAN], 2, 10, mention="esas"))
+    got = guard("si, ponle 2 mas de esas", i)
     assert got is not None
-    assert got.intent == Intent.ADD_ITEMS
+    assert got.intent == Intent.UPDATE_QTY
     [it] = got.items
-    assert (it.qty, it.previous_qty) == (2, None)
+    assert (it.qty, it.previous_qty, it.qty_delta) == (None, None, 2)
+
+
+@pytest.mark.parametrize(
+    ("text", "intent"),
+    [
+        ("ya no quiero 2 rollos mas de frontlit", Intent.REMOVE_ITEM),
+        ("ya no quiero 2 rollos mas de frontlit", Intent.ADD_ITEMS),
+        ("no necesito 2 rollos mas de frontlit, quitalos", Intent.UPDATE_QTY),
+        ("si, ponle 2 mas de esas", Intent.CREATE_QUOTE),  # no line to add on top of
+        ("si, ponle 2 mas de esas", Intent.CANCEL),
+        ("no le quites 2 a las frontlit", Intent.UPDATE_QTY),
+    ],
+)
+def test_negated_or_mismatched_relative_change_goes_to_review(text, intent):
+    assert guard(text, interp(intent, item(FRONTLITS, 2, 18))) is None
+
+
+def test_relative_increase_never_reaches_a_new_line():
+    from quote_engine.domain.router import Review, route
+
+    got = guard("si, ponle 2 mas de esas", interp(Intent.UPDATE_QTY, item([CYAN], 2)))
+    assert got is not None
+    assert isinstance(route(got, "c1", []), Review)
 
 
 @pytest.mark.parametrize(
